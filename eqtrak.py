@@ -1,10 +1,11 @@
 import os
 import re
 import sys
+from time import time
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QLabel, QVBoxLayout, QWidget,
-    QScrollArea, QLineEdit, QMenu
+    QScrollArea, QLineEdit, QMenu, QPushButton
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt, QTimer
@@ -20,7 +21,7 @@ class MobTimerApp(QWidget):
         self.file = None
         self.log_position = 0
 
-        self.timers = {}  # {mob_key: [QLabel, seconds, QTimer]}
+        self.timers = {}  # {mob_key: [QLabel, seconds, QTimer, mob_name]}
         self.mob_counts = {}
 
         self.setup_ui()
@@ -112,7 +113,8 @@ class MobTimerApp(QWidget):
             print(f"Error checking for new toon: {e}")
 
     def check_new_log_lines(self):
-        if not self.file:
+        if not self.file or not os.path.exists(self.log_path):
+            self.load_active_log_file()
             return
         try:
             self.file.seek(self.log_position)
@@ -136,10 +138,10 @@ class MobTimerApp(QWidget):
                     if "You have slain" in line
                     else re.search(r"(.+?) has been slain by", line).group(1)
                 ).strip()
-            except:
+            except AttributeError:
                 return
 
-            mob_key = mob_name
+            mob_key = f"{mob_name}_{int(time() * 1000)}"
 
             minutes = 6
             seconds = 30
@@ -148,38 +150,34 @@ class MobTimerApp(QWidget):
                 try:
                     m, s = map(int, user_time.split(":"))
                     minutes, seconds = m, s
-                except:
+                except ValueError:
                     pass
-            self.start_timer(mob_key, minutes * 60 + seconds)
+            self.start_timer(mob_key, mob_name, minutes * 60 + seconds)
 
-    def start_timer(self, mob_name: str, seconds: int):
-        from time import time
-        unique_key = f"{mob_name}_{int(time() * 1000)}"
-
-        label = ColorTimerLabel(f"{mob_name} - {seconds // 60}:{seconds % 60:02d}")
+    def start_timer(self, mob_key: str, mob_name: str, seconds: int):
+        print(f"Starting timer for {mob_key} ({mob_name}, {seconds}s)")
+        label = ColorTimerLabel(f"{mob_name} - {seconds // 60}:{seconds % 60:02d}", mob_key)
         label.setStyleSheet(self.timer_style)
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.timer_layout.addWidget(label)
-        #self.timers[mob_name] = label
-        label.mouseDoubleClickEvent = lambda event: self.remove_timer(unique_key)
-
         timer = QTimer(self)
-        timer.timeout.connect(lambda: self.update_timer(unique_key))
+        timer.timeout.connect(lambda: self.update_timer(mob_key))
         timer.start(1000)
 
-        self.timers[unique_key] = [label, seconds, timer, mob_name]
-
+        self.timers[mob_key] = [label, seconds, timer, mob_name]
+        label.double_clicked.connect(lambda: self.remove_timer(mob_key))
 
     def update_timer(self, mob_key):
-
         if mob_key not in self.timers:
+            print(f"Timer {mob_key} not found in update_timer")
             return
 
         label, seconds, timer, mob_name = self.timers[mob_key]
         seconds -= 1
 
         if seconds <= 0:
+            print(f"Timer {mob_key} expired")
             timer.stop()
             label.deleteLater()
             del self.timers[mob_key]
@@ -190,14 +188,21 @@ class MobTimerApp(QWidget):
 
     def remove_timer(self, mob_key):
         if mob_key in self.timers:
+            print(f"Removing timer {mob_key}")
             label, _, timer, _ = self.timers[mob_key]
             timer.stop()
             label.deleteLater()
             del self.timers[mob_key]
 
+    def closeEvent(self, event):
+        if self.file:
+            self.file.close()
+        event.accept()
+
 class ColorTimerLabel(QLabel):
-    def __init__(self, text):
+    def __init__(self, text, mob_key):
         super().__init__(text)
+        self.mob_key = mob_key
         self.style_base = """
             font-family: Monospace;
             font-size: 14px;
@@ -210,6 +215,13 @@ class ColorTimerLabel(QLabel):
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
+        # Define a custom signal for double-click
+        self.double_clicked = Qt.pyqtSignal()
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.double_clicked.emit()
+        super().mouseDoubleClickEvent(event)
 
     def show_context_menu(self, pos):
         menu = QMenu()
