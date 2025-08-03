@@ -22,10 +22,8 @@ class MobTimerApp(QWidget):
         self.setup_ui()
         self.poll_timer = QTimer(self)
         self.poll_timer.timeout.connect(self.check_new_log_lines)
-        self.poll_timer.start(1000)
         self.toon_check_timer = QTimer(self)
         self.toon_check_timer.timeout.connect(self.check_for_new_toon)
-        self.toon_check_timer.start(3000)
 
     def update_toon(self, toon_name, log_file, log_path, log_position):
         self.toon_name = toon_name
@@ -33,6 +31,13 @@ class MobTimerApp(QWidget):
         self.log_path = log_path
         self.log_position = log_position
         self.toon_label.setText(f"Toon: {self.toon_name}")
+
+    def showEvent(self, event):
+        if not self.poll_timer.isActive():
+            self.poll_timer.start(1000)
+        if not self.toon_check_timer.isActive():
+            self.toon_check_timer.start(3000)
+        super().showEvent(event)
 
     def setup_ui(self):
         self.resize(280, 400)
