@@ -5,6 +5,7 @@ from timer_app import MobTimerApp
 from voice_notifications_app import VoiceNotificationsApp
 import os
 import re
+import pyttsx3
 
 class MainApp:
     def __init__(self):
@@ -21,6 +22,10 @@ class MainApp:
         self.toon_name = "Unknown"
         self.timer_window = None
         self.voice_window = None
+        self.tts = pyttsx3.init()
+        self.tts.setProperty('rate', 150)
+        self.voice_enabled = self.settings.value("voice_enabled", False, type=bool)
+        self.triggers = self.settings.value("voice_triggers", {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}, type=dict)
         self.load_active_log_file()
         icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "tray-icon.png"))
         print(f"Loading icon from: {icon_path}")
@@ -81,6 +86,16 @@ class MainApp:
             self.log_file.seek(self.log_position)
             new_lines = self.log_file.readlines()
             self.log_position = self.log_file.tell()
+            if self.voice_enabled:
+                for line in new_lines:
+                    clean_line = re.sub(r'^\[.*?\]\s', '', line.strip())
+                    if clean_line:
+                        for pattern, message in self.triggers.items():
+                            if pattern in clean_line:
+                                print(f"Voice alert: {message}")
+                                self.tts.say(message)
+                                self.tts.runAndWait()
+                                break
             if self.voice_window and self.voice_window.isVisible():
                 for line in new_lines:
                     clean_line = re.sub(r'^\[.*?\]\s', '', line.strip())
@@ -129,6 +144,12 @@ class MainApp:
             self.log_path = None
             self.log_position = 0
             self.load_active_log_file()
+
+    def update_voice_settings(self, enabled, triggers):
+        self.voice_enabled = enabled
+        self.triggers = triggers
+        self.settings.setValue("voice_enabled", self.voice_enabled)
+        self.settings.setValue("voice_triggers", self.triggers)
 
     def quit(self):
         if self.log_file:

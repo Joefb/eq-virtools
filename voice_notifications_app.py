@@ -1,6 +1,6 @@
 import re
 import pyttsx3
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox, QApplication
 from PyQt6.QtCore import QSettings, Qt
 
 class VoiceNotificationsApp(QWidget):
@@ -11,12 +11,13 @@ class VoiceNotificationsApp(QWidget):
         self.settings = QSettings("EverQuestTools", "VoiceNotifications")
         self.tts = pyttsx3.init()
         self.tts.setProperty('rate', 150)
-        self.enabled = self.settings.value("enabled", False, type=bool)
-        self.triggers = self.settings.value("triggers", {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}, type=dict)
+        self.enabled = self.settings.value("voice_enabled", False, type=bool)
+        self.triggers = self.settings.value("voice_triggers", {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}, type=dict)
         self.log_file = None
         self.log_path = None
         self.log_position = 0
         self.setup_ui()
+        self.update_main_app_settings()
 
     def setup_ui(self):
         self.resize(400, 300)
@@ -73,10 +74,11 @@ class VoiceNotificationsApp(QWidget):
         message = self.message_input.text().strip()
         if pattern and message:
             self.triggers[pattern] = message
-            self.settings.setValue("triggers", self.triggers)
+            self.settings.setValue("voice_triggers", self.triggers)
             self.load_triggers()
             self.pattern_input.clear()
             self.message_input.clear()
+            self.update_main_app_settings()
 
     def delete_trigger(self):
         selected = self.table.selectedItems()
@@ -84,12 +86,20 @@ class VoiceNotificationsApp(QWidget):
             pattern = selected[0].text()
             if pattern in self.triggers:
                 del self.triggers[pattern]
-                self.settings.setValue("triggers", self.triggers)
+                self.settings.setValue("voice_triggers", self.triggers)
                 self.load_triggers()
+                self.update_main_app_settings()
 
     def toggle_notifications(self, state):
         self.enabled = state == Qt.CheckState.Checked.value
-        self.settings.setValue("enabled", self.enabled)
+        self.settings.setValue("voice_enabled", self.enabled)
+        self.update_main_app_settings()
+
+    def update_main_app_settings(self):
+        from main import MainApp
+        main_app = QApplication.instance().property("MainApp")
+        if main_app:
+            main_app.update_voice_settings(self.enabled, self.triggers)
 
     def process_log_line(self, line):
         if not self.enabled:
