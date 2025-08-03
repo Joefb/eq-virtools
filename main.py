@@ -16,9 +16,17 @@ class MainApp:
         self.log_file = None
         self.log_position = 0
         self.toon_name = "Unknown"
-        self.load_active_log_file()
-        icon_path = os.path.join(os.path.dirname(__file__), "tray-icon.png")
-        self.tray = QSystemTrayIcon(QIcon(icon_path))
+        self.timer_window = None
+        self.load_active_log_file()  # Moved after timer_window init
+        icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "tray-icon.png"))
+        print(f"Loading icon from: {icon_path}")
+        icon = QIcon(icon_path)
+        self.tray = QSystemTrayIcon(icon)
+        if icon.isNull():
+            print("Failed to load icon, using fallback")
+            self.tray.setIcon(QIcon.fromTheme("application-x-executable"))
+        else:
+            print("Icon loaded successfully")
         self.tray.setVisible(True)
         print(f"Tray visible: {self.tray.isVisible()}")
         if self.tray.isSystemTrayAvailable():
@@ -28,7 +36,6 @@ class MainApp:
         self.menu = QMenu()
         self.setup_menu()
         self.tray.setContextMenu(self.menu)
-        self.timer_window = None
 
     def load_active_log_file(self):
         try:
@@ -52,7 +59,7 @@ class MainApp:
                 self.log_file = open(new_log_file, "r")
                 self.log_file.seek(0, os.SEEK_END)
                 self.log_position = self.log_file.tell()
-                if self.timer_window:
+                if self.timer_window and hasattr(self.timer_window, 'update_toon'):
                     self.timer_window.update_toon(self.toon_name, self.log_file, self.log_path, self.log_position)
         except Exception as e:
             print(f"Error loading log file: {e}")
