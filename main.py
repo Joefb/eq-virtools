@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QFileDialog
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtCore import QSettings, QTimer
 from timer_app import MobTimerApp
+from voice_notifications_app import VoiceNotificationsApp
 import os
 
 class MainApp:
@@ -10,7 +11,7 @@ class MainApp:
             QApplication.instance().quit()
         self.app = QApplication([])
         self.app.setQuitOnLastWindowClosed(False)
-        self.app.setProperty("MainApp", self)  # Store MainApp instance
+        self.app.setProperty("MainApp", self)
         self.settings = QSettings("EverQuestTools", "MainApp")
         self.log_dir = self.settings.value("log_dir", "/home/jfburgess/Games/everquest/Logs/")
         self.log_path = None
@@ -18,6 +19,7 @@ class MainApp:
         self.log_position = 0
         self.toon_name = "Unknown"
         self.timer_window = None
+        self.voice_window = None
         self.load_active_log_file()
         icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "tray-icon.png"))
         print(f"Loading icon from: {icon_path}")
@@ -65,6 +67,8 @@ class MainApp:
                 self.log_position = self.log_file.tell()
                 if self.timer_window and hasattr(self.timer_window, 'update_toon'):
                     self.timer_window.update_toon(self.toon_name, self.log_file, self.log_path, self.log_position)
+                if self.voice_window and hasattr(self.voice_window, 'update_log_info'):
+                    self.voice_window.update_log_info(self.log_file, self.log_path, self.log_position)
         except Exception as e:
             print(f"Error loading log file: {e}")
 
@@ -74,8 +78,13 @@ class MainApp:
             return
         try:
             self.log_file.seek(self.log_position)
-            self.log_file.readlines()  # Read to advance position
+            new_lines = self.log_file.readlines()
             self.log_position = self.log_file.tell()
+            if self.voice_window and self.voice_window.isVisible():
+                for line in new_lines:
+                    clean_line = re.sub(r'^\[.*?\]\s', '', line.strip())
+                    if clean_line:
+                        self.voice_window.process_log_line(clean_line)
         except Exception as e:
             print(f"Error updating log position: {e}")
 
@@ -83,6 +92,9 @@ class MainApp:
         timer_action = QAction("Timer Tool", self.menu)
         timer_action.triggered.connect(self.launch_timer_tool)
         self.menu.addAction(timer_action)
+        voice_action = QAction("Voice Notifications", self.menu)
+        voice_action.triggered.connect(self.launch_voice_notifications)
+        self.menu.addAction(voice_action)
         placeholder_action = QAction("Other Tools (TBD)", self.menu)
         placeholder_action.setEnabled(False)
         self.menu.addAction(placeholder_action)
@@ -92,6 +104,17 @@ class MainApp:
         quit_action = QAction("Quit", self.menu)
         quit_action.triggered.connect(self.quit)
         self.menu.addAction(quit_action)
+
+    def launch_timer_tool(self):
+        if not self.timer_window:
+            self.timer_window = MobTimerApp(self.log_dir, self.toon_name, self.log_file, self.log_path, self.log_position)
+        self.timer_window.show()
+
+    def launch_voice_notifications(self):
+        if not self.voice_window:
+            self.voice_window = VoiceNotificationsApp(self.log_dir)
+            self.voice_window.update_log_info(self.log_file, self.log_path, self.log_position)
+        self.voice_window.show()
 
     def select_log_directory(self):
         directory = QFileDialog.getExistingDirectory(None, "Select Log Directory", self.log_dir)
@@ -105,11 +128,6 @@ class MainApp:
             self.log_path = None
             self.log_position = 0
             self.load_active_log_file()
-
-    def launch_timer_tool(self):
-        if not self.timer_window:
-            self.timer_window = MobTimerApp(self.log_dir, self.toon_name, self.log_file, self.log_path, self.log_position)
-        self.timer_window.show()
 
     def quit(self):
         if self.log_file:
