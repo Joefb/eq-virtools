@@ -8,14 +8,14 @@ from PyQt6.QtWidgets import (
     QScrollArea, QLineEdit, QMenu, QPushButton
 )
 from PyQt6.QtGui import QAction
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal  # Correct import for pyqtSignal
 
 class MobTimerApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Mob Respawn Timer")
 
-        self.log_dir = "/home/jfburgess/.wine/drive_c/Program Files (x86)/EverQuest/Logs/"
+        self.log_dir = "/home/jfburgess/Games/everquest/Logs/"
         self.toon_name = "Unknown"
         self.log_path = None
         self.file = None
@@ -200,6 +200,8 @@ class MobTimerApp(QWidget):
         event.accept()
 
 class ColorTimerLabel(QLabel):
+    double_clicked = pyqtSignal()  # Correct signal definition
+
     def __init__(self, text, mob_key):
         super().__init__(text)
         self.mob_key = mob_key
@@ -215,8 +217,6 @@ class ColorTimerLabel(QLabel):
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
-        # Define a custom signal for double-click
-        self.double_clicked = Qt.pyqtSignal()
 
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
