@@ -3,7 +3,7 @@ import re
 from time import time
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QWidget, QLabel, QVBoxLayout, QScrollArea, QLineEdit, QMenu
+    QApplication, QWidget, QLabel, QVBoxLayout, QScrollArea, QLineEdit, QMenu
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
@@ -33,6 +33,10 @@ class MobTimerApp(QWidget):
         self.toon_label.setText(f"Toon: {self.toon_name}")
 
     def showEvent(self, event):
+        from main import MainApp  # Import here to avoid circular import
+        main_app = QApplication.instance().property("MainApp")
+        if main_app:
+            self.update_toon(main_app.toon_name, main_app.log_file, main_app.log_path, main_app.log_position)
         if not self.poll_timer.isActive():
             self.poll_timer.start(1000)
         if not self.toon_check_timer.isActive():

@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QFileDialog
 from PyQt6.QtGui import QIcon, QAction
-from PyQt6.QtCore import QSettings
+from PyQt6.QtCore import QSettings, QTimer
 from timer_app import MobTimerApp
 import os
 
@@ -10,6 +10,7 @@ class MainApp:
             QApplication.instance().quit()
         self.app = QApplication([])
         self.app.setQuitOnLastWindowClosed(False)
+        self.app.setProperty("MainApp", self)  # Store MainApp instance
         self.settings = QSettings("EverQuestTools", "MainApp")
         self.log_dir = self.settings.value("log_dir", "/home/jfburgess/Games/everquest/Logs/")
         self.log_path = None
@@ -17,7 +18,7 @@ class MainApp:
         self.log_position = 0
         self.toon_name = "Unknown"
         self.timer_window = None
-        self.load_active_log_file()  # Moved after timer_window init
+        self.load_active_log_file()
         icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "tray-icon.png"))
         print(f"Loading icon from: {icon_path}")
         icon = QIcon(icon_path)
@@ -36,6 +37,9 @@ class MainApp:
         self.menu = QMenu()
         self.setup_menu()
         self.tray.setContextMenu(self.menu)
+        self.log_poll_timer = QTimer()
+        self.log_poll_timer.timeout.connect(self.update_log_position)
+        self.log_poll_timer.start(1000)
 
     def load_active_log_file(self):
         try:
@@ -63,6 +67,17 @@ class MainApp:
                     self.timer_window.update_toon(self.toon_name, self.log_file, self.log_path, self.log_position)
         except Exception as e:
             print(f"Error loading log file: {e}")
+
+    def update_log_position(self):
+        if not self.log_file or not os.path.exists(self.log_path):
+            self.load_active_log_file()
+            return
+        try:
+            self.log_file.seek(self.log_position)
+            self.log_file.readlines()  # Read to advance position
+            self.log_position = self.log_file.tell()
+        except Exception as e:
+            print(f"Error updating log position: {e}")
 
     def setup_menu(self):
         timer_action = QAction("Timer Tool", self.menu)
