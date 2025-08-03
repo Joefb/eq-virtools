@@ -17,7 +17,8 @@ class MainApp:
         self.log_position = 0
         self.toon_name = "Unknown"
         self.load_active_log_file()
-        self.tray = QSystemTrayIcon(QIcon("tray-icon.png"))
+        icon_path = os.path.join(os.path.dirname(__file__), "tray-icon.png")
+        self.tray = QSystemTrayIcon(QIcon(icon_path))
         self.tray.setVisible(True)
         print(f"Tray visible: {self.tray.isVisible()}")
         if self.tray.isSystemTrayAvailable():
