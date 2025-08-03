@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QScrollArea, QLineEdit, QMenu, QPushButton
 )
 from PyQt6.QtGui import QAction
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal  # Correct import for pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
 class MobTimerApp(QWidget):
     def __init__(self):
@@ -179,6 +179,7 @@ class MobTimerApp(QWidget):
         if seconds <= 0:
             print(f"Timer {mob_key} expired")
             timer.stop()
+            timer.timeout.disconnect()  # Explicitly disconnect the signal
             label.deleteLater()
             del self.timers[mob_key]
         else:
@@ -191,6 +192,7 @@ class MobTimerApp(QWidget):
             print(f"Removing timer {mob_key}")
             label, _, timer, _ = self.timers[mob_key]
             timer.stop()
+            timer.timeout.disconnect()  # Explicitly disconnect the signal
             label.deleteLater()
             del self.timers[mob_key]
 
@@ -200,7 +202,7 @@ class MobTimerApp(QWidget):
         event.accept()
 
 class ColorTimerLabel(QLabel):
-    double_clicked = pyqtSignal()  # Correct signal definition
+    double_clicked = pyqtSignal()
 
     def __init__(self, text, mob_key):
         super().__init__(text)
