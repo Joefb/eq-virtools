@@ -4,6 +4,7 @@ from PyQt6.QtCore import QSettings, QTimer
 from timer_app import MobTimerApp
 from voice_notifications_app import VoiceNotificationsApp
 import os
+import re
 
 class MainApp:
     def __init__(self):
@@ -26,16 +27,16 @@ class MainApp:
         icon = QIcon(icon_path)
         self.tray = QSystemTrayIcon(icon)
         if icon.isNull():
-            print("Failed to load icon, using fallback")
+            print(f"Failed to load icon, using fallback")
             self.tray.setIcon(QIcon.fromTheme("application-x-executable"))
         else:
-            print("Icon loaded successfully")
+            print(f"Icon loaded successfully")
         self.tray.setVisible(True)
         print(f"Tray visible: {self.tray.isVisible()}")
         if self.tray.isSystemTrayAvailable():
-            print("System tray available")
+            print(f"System tray available")
         else:
-            print("System tray unavailable")
+            print(f"System tray unavailable")
         self.menu = QMenu()
         self.setup_menu()
         self.tray.setContextMenu(self.menu)
