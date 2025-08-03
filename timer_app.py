@@ -9,18 +9,17 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
 class MobTimerApp(QWidget):
-    def __init__(self, log_dir):
+    def __init__(self, log_dir, toon_name, log_file, log_path, log_position):
         super().__init__()
         self.setWindowTitle("Mob Respawn Timer")
         self.log_dir = log_dir
-        self.toon_name = "Unknown"
-        self.log_path = None
-        self.file = None
-        self.log_position = 0
+        self.toon_name = toon_name
+        self.log_file = log_file
+        self.log_path = log_path
+        self.log_position = log_position
         self.timers = {}  # {mob_key: [QLabel, seconds, QTimer, mob_name]}
         self.mob_counts = {}
         self.setup_ui()
-        self.load_active_log_file()
         self.poll_timer = QTimer(self)
         self.poll_timer.timeout.connect(self.check_new_log_lines)
         self.poll_timer.start(1000)
@@ -28,21 +27,19 @@ class MobTimerApp(QWidget):
         self.toon_check_timer.timeout.connect(self.check_for_new_toon)
         self.toon_check_timer.start(3000)
 
-    def update_log_directory(self, new_log_dir):
-        self.log_dir = new_log_dir
-        if self.file:
-            self.file.close()
-            self.file = None
-        self.log_path = None
-        self.log_position = 0
-        self.load_active_log_file()
+    def update_toon(self, toon_name, log_file, log_path, log_position):
+        self.toon_name = toon_name
+        self.log_file = log_file
+        self.log_path = log_path
+        self.log_position = log_position
+        self.toon_label.setText(f"Toon: {self.toon_name}")
 
     def setup_ui(self):
         self.resize(280, 400)
         main_layout = QVBoxLayout()
         main_layout.setSpacing(4)
         main_layout.setContentsMargins(4, 4, 4, 4)
-        self.toon_label = QLabel("Toon: Unknown")
+        self.toon_label = QLabel(f"Toon: {self.toon_name}")
         self.toon_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         main_layout.addWidget(self.toon_label)
         self.time_input = QLineEdit()
@@ -69,32 +66,6 @@ class MobTimerApp(QWidget):
         }
         """
 
-    def load_active_log_file(self):
-        try:
-            if not os.path.exists(self.log_dir):
-                print(f"Log directory {self.log_dir} does not exist")
-                return
-            os.chdir(self.log_dir)
-            log_files = [f for f in os.listdir() if f.startswith("eqlog_")]
-            if not log_files:
-                print(f"No log files found in {self.log_dir}")
-                return
-            log_files = sorted(log_files, key=lambda f: os.stat(f).st_mtime, reverse=True)
-            new_log_file = log_files[0]
-            new_toon = new_log_file.split("_")[1]
-            if new_log_file != self.log_path:
-                print(f"Switching to new toon log: {new_log_file}")
-                self.log_path = new_log_file
-                self.toon_name = new_toon
-                self.toon_label.setText(f"Toon: {self.toon_name}")
-                if self.file:
-                    self.file.close()
-                self.file = open(new_log_file, "r")
-                self.file.seek(0, os.SEEK_END)
-                self.log_position = self.file.tell()
-        except Exception as e:
-            print(f"Error loading log file: {e}")
-
     def check_for_new_toon(self):
         try:
             if not os.path.exists(self.log_dir):
@@ -108,18 +79,24 @@ class MobTimerApp(QWidget):
             log_files = sorted(log_files, key=lambda f: os.stat(f).st_mtime, reverse=True)
             latest_file = log_files[0]
             if latest_file != self.log_path:
-                self.load_active_log_file()
+                self.log_path = latest_file
+                self.toon_name = latest_file.split("_")[1]
+                self.toon_label.setText(f"Toon: {self.toon_name}")
+                if self.log_file:
+                    self.log_file.close()
+                self.log_file = open(latest_file, "r")
+                self.log_file.seek(0, os.SEEK_END)
+                self.log_position = self.log_file.tell()
         except Exception as e:
             print(f"Error checking for new toon: {e}")
 
     def check_new_log_lines(self):
-        if not self.file or not os.path.exists(self.log_path):
-            self.load_active_log_file()
+        if not self.log_file or not os.path.exists(self.log_path):
             return
         try:
-            self.file.seek(self.log_position)
-            new_lines = self.file.readlines()
-            self.log_position = self.file.tell()
+            self.log_file.seek(self.log_position)
+            new_lines = self.log_file.readlines()
+            self.log_position = self.log_file.tell()
             for line in new_lines:
                 clean_line = re.sub(r'^\[.*?\]\s', '', line.strip())
                 if clean_line:
@@ -189,8 +166,9 @@ class MobTimerApp(QWidget):
             del self.timers[mob_key]
 
     def closeEvent(self, event):
-        if self.file:
-            self.file.close()
+        self.poll_timer.stop()
+        self.toon_check_timer.stop()
+        self.hide()
         event.accept()
 
 class ColorTimerLabel(QLabel):
