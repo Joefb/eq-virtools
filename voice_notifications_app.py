@@ -31,7 +31,7 @@ class VoiceNotificationsApp(QWidget):
         super().__init__()
         self.setWindowTitle("Voice Notifications")
         self.log_dir = log_dir
-        self.settings = QSettings("EverQuestTools", "VoiceNotifications")
+        self.settings = QSettings("EQ-Virtools", "VoiceNotifications")
         self.tts_thread = None
         self.enabled = self.settings.value("voice_enabled", False, type=bool)
         self.triggers = self.settings.value("voice_triggers", {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}, type=dict)
@@ -150,18 +150,6 @@ class VoiceNotificationsApp(QWidget):
         main_app = QApplication.instance().property("MainApp")
         if main_app:
             main_app.update_voice_settings(self.enabled, self.triggers)
-
-    def process_log_line(self, line):
-        if not self.enabled:
-            return
-        for pattern, message in self.triggers.items():
-            if pattern in line:
-                print(f"Voice alert: {message}")
-                if self.tts_thread and self.tts_thread.isRunning():
-                    self.tts_thread.wait()
-                self.tts_thread = TTSThread(message)
-                self.tts_thread.start()
-                break
 
     def update_log_info(self, log_file, log_path, log_position):
         if self.log_file and self.log_file != log_file:
