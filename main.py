@@ -86,7 +86,7 @@ class MainApp:
             self.log_file.seek(self.log_position)
             new_lines = self.log_file.readlines()
             self.log_position = self.log_file.tell()
-            if self.voice_enabled:
+            if self.voice_enabled and (not self.voice_window or not self.voice_window.isVisible()):
                 for line in new_lines:
                     clean_line = re.sub(r'^\[.*?\]\s', '', line.strip())
                     if clean_line:
