@@ -1,7 +1,30 @@
 import re
-import pyttsx3
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox, QApplication
-from PyQt6.QtCore import QSettings, Qt
+from PyQt6.QtCore import QSettings, Qt, QThread, pyqtSignal
+from gtts import gTTS
+import pygame
+import os
+import time
+
+class TTSThread(QThread):
+    def __init__(self, text):
+        super().__init__()
+        self.text = text
+        self.temp_file = "temp.mp3"
+
+    def run(self):
+        try:
+            tts = gTTS(text=self.text, lang='en', tld='com')
+            tts.save(self.temp_file)
+            pygame.mixer.init()
+            pygame.mixer.music.load(self.temp_file)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                time.sleep(0.1)
+            pygame.mixer.music.unload()
+            os.remove(self.temp_file)
+        except Exception as e:
+            print(f"TTS error: {e}")
 
 class VoiceNotificationsApp(QWidget):
     def __init__(self, log_dir):
@@ -9,8 +32,7 @@ class VoiceNotificationsApp(QWidget):
         self.setWindowTitle("Voice Notifications")
         self.log_dir = log_dir
         self.settings = QSettings("EverQuestTools", "VoiceNotifications")
-        self.tts = pyttsx3.init()
-        self.tts.setProperty('rate', 150)
+        self.tts_thread = None
         self.enabled = self.settings.value("voice_enabled", False, type=bool)
         self.triggers = self.settings.value("voice_triggers", {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}, type=dict)
         self.log_file = None
@@ -107,7 +129,6 @@ class VoiceNotificationsApp(QWidget):
             new_pattern = pattern_item.text().strip()
             new_message = message_item.text().strip()
             if new_pattern and new_message:
-                # Find old pattern to update
                 old_pattern = None
                 for p, m in list(self.triggers.items()):
                     if m == self.table.item(row, 1).text() and p != new_pattern:
@@ -136,8 +157,10 @@ class VoiceNotificationsApp(QWidget):
         for pattern, message in self.triggers.items():
             if pattern in line:
                 print(f"Voice alert: {message}")
-                self.tts.say(message)
-                self.tts.runAndWait()
+                if self.tts_thread and self.tts_thread.isRunning():
+                    self.tts_thread.wait()
+                self.tts_thread = TTSThread(message)
+                self.tts_thread.start()
                 break
 
     def update_log_info(self, log_file, log_path, log_position):
@@ -148,5 +171,7 @@ class VoiceNotificationsApp(QWidget):
         self.log_position = log_position
 
     def closeEvent(self, event):
+        if self.tts_thread and self.tts_thread.isRunning():
+            self.tts_thread.wait()
         self.hide()
         event.accept()

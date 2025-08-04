@@ -1,11 +1,33 @@
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QFileDialog
 from PyQt6.QtGui import QIcon, QAction
-from PyQt6.QtCore import QSettings, QTimer
+from PyQt6.QtCore import QSettings, QTimer, QThread, pyqtSignal
 from timer_app import MobTimerApp
 from voice_notifications_app import VoiceNotificationsApp
 import os
 import re
-import pyttsx3
+from gtts import gTTS
+import pygame
+import time
+
+class TTSThread(QThread):
+    def __init__(self, text):
+        super().__init__()
+        self.text = text
+        self.temp_file = "temp.mp3"
+
+    def run(self):
+        try:
+            tts = gTTS(text=self.text, lang='en', tld='com')
+            tts.save(self.temp_file)
+            pygame.mixer.init()
+            pygame.mixer.music.load(self.temp_file)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                time.sleep(0.1)
+            pygame.mixer.music.unload()
+            os.remove(self.temp_file)
+        except Exception as e:
+            print(f"TTS error: {e}")
 
 class MainApp:
     def __init__(self):
@@ -22,8 +44,7 @@ class MainApp:
         self.toon_name = "Unknown"
         self.timer_window = None
         self.voice_window = None
-        self.tts = pyttsx3.init()
-        self.tts.setProperty('rate', 150)
+        self.tts_thread = None
         self.voice_enabled = self.settings.value("voice_enabled", False, type=bool)
         self.triggers = self.settings.value("voice_triggers", {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}, type=dict)
         self.load_active_log_file()
@@ -93,8 +114,10 @@ class MainApp:
                         for pattern, message in self.triggers.items():
                             if pattern in clean_line:
                                 print(f"Voice alert: {message}")
-                                self.tts.say(message)
-                                self.tts.runAndWait()
+                                if self.tts_thread and self.tts_thread.isRunning():
+                                    self.tts_thread.wait()
+                                self.tts_thread = TTSThread(message)
+                                self.tts_thread.start()
                                 break
             if self.voice_window and self.voice_window.isVisible():
                 for line in new_lines:
@@ -154,6 +177,8 @@ class MainApp:
     def quit(self):
         if self.log_file:
             self.log_file.close()
+        if self.tts_thread and self.tts_thread.isRunning():
+            self.tts_thread.wait()
         self.app.quit()
 
     def run(self):
