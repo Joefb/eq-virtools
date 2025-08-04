@@ -35,6 +35,8 @@ class VoiceNotificationsApp(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(2)
         self.table.setHorizontalHeaderLabels(["Log Pattern", "Spoken Message"])
+        self.table.setColumnWidth(0, 280)
+        self.table.setColumnWidth(1, 280)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.load_triggers()
         layout.addWidget(self.table)
