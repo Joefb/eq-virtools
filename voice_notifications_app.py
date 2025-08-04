@@ -20,7 +20,7 @@ class VoiceNotificationsApp(QWidget):
         self.update_main_app_settings()
 
     def setup_ui(self):
-        self.resize(400, 300)
+        self.resize(600, 500)
         layout = QVBoxLayout()
         layout.setSpacing(4)
         layout.setContentsMargins(4, 4, 4, 4)
