@@ -1,8 +1,33 @@
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QFileDialog
 from PyQt6.QtGui import QIcon, QAction
-from PyQt6.QtCore import QSettings, QTimer
+from PyQt6.QtCore import QSettings, QTimer, QThread, pyqtSignal
 from timer_app import MobTimerApp
+from voice_notifications_app import VoiceNotificationsApp
 import os
+import re
+from gtts import gTTS
+import pygame
+import time
+
+class TTSThread(QThread):
+    def __init__(self, text):
+        super().__init__()
+        self.text = text
+        self.temp_file = "temp.mp3"
+
+    def run(self):
+        try:
+            tts = gTTS(text=self.text, lang='en', tld='com')
+            tts.save(self.temp_file)
+            pygame.mixer.init()
+            pygame.mixer.music.load(self.temp_file)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                time.sleep(0.1)
+            pygame.mixer.music.unload()
+            os.remove(self.temp_file)
+        except Exception as e:
+            print(f"TTS error: {e}")
 
 class MainApp:
     def __init__(self):
@@ -10,7 +35,7 @@ class MainApp:
             QApplication.instance().quit()
         self.app = QApplication([])
         self.app.setQuitOnLastWindowClosed(False)
-        self.app.setProperty("MainApp", self)  # Store MainApp instance
+        self.app.setProperty("MainApp", self)
         self.settings = QSettings("EverQuestTools", "MainApp")
         self.log_dir = self.settings.value("log_dir", "/home/jfburgess/Games/everquest/Logs/")
         self.log_path = None
@@ -18,22 +43,26 @@ class MainApp:
         self.log_position = 0
         self.toon_name = "Unknown"
         self.timer_window = None
+        self.voice_window = None
+        self.tts_thread = None
+        self.voice_enabled = self.settings.value("voice_enabled", False, type=bool)
+        self.triggers = self.settings.value("voice_triggers", {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}, type=dict)
         self.load_active_log_file()
         icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "tray-icon.png"))
         print(f"Loading icon from: {icon_path}")
         icon = QIcon(icon_path)
         self.tray = QSystemTrayIcon(icon)
         if icon.isNull():
-            print("Failed to load icon, using fallback")
+            print(f"Failed to load icon, using fallback")
             self.tray.setIcon(QIcon.fromTheme("application-x-executable"))
         else:
-            print("Icon loaded successfully")
+            print(f"Icon loaded successfully")
         self.tray.setVisible(True)
         print(f"Tray visible: {self.tray.isVisible()}")
         if self.tray.isSystemTrayAvailable():
-            print("System tray available")
+            print(f"System tray available")
         else:
-            print("System tray unavailable")
+            print(f"System tray unavailable")
         self.menu = QMenu()
         self.setup_menu()
         self.tray.setContextMenu(self.menu)
@@ -65,6 +94,8 @@ class MainApp:
                 self.log_position = self.log_file.tell()
                 if self.timer_window and hasattr(self.timer_window, 'update_toon'):
                     self.timer_window.update_toon(self.toon_name, self.log_file, self.log_path, self.log_position)
+                if self.voice_window and hasattr(self.voice_window, 'update_log_info'):
+                    self.voice_window.update_log_info(self.log_file, self.log_path, self.log_position)
         except Exception as e:
             print(f"Error loading log file: {e}")
 
@@ -74,8 +105,25 @@ class MainApp:
             return
         try:
             self.log_file.seek(self.log_position)
-            self.log_file.readlines()  # Read to advance position
+            new_lines = self.log_file.readlines()
             self.log_position = self.log_file.tell()
+            if self.voice_enabled and (not self.voice_window or not self.voice_window.isVisible()):
+                for line in new_lines:
+                    clean_line = re.sub(r'^\[.*?\]\s', '', line.strip())
+                    if clean_line:
+                        for pattern, message in self.triggers.items():
+                            if pattern in clean_line:
+                                print(f"Voice alert: {message}")
+                                if self.tts_thread and self.tts_thread.isRunning():
+                                    self.tts_thread.wait()
+                                self.tts_thread = TTSThread(message)
+                                self.tts_thread.start()
+                                break
+            if self.voice_window and self.voice_window.isVisible():
+                for line in new_lines:
+                    clean_line = re.sub(r'^\[.*?\]\s', '', line.strip())
+                    if clean_line:
+                        self.voice_window.process_log_line(clean_line)
         except Exception as e:
             print(f"Error updating log position: {e}")
 
@@ -83,6 +131,9 @@ class MainApp:
         timer_action = QAction("Timer Tool", self.menu)
         timer_action.triggered.connect(self.launch_timer_tool)
         self.menu.addAction(timer_action)
+        voice_action = QAction("Voice Notifications", self.menu)
+        voice_action.triggered.connect(self.launch_voice_notifications)
+        self.menu.addAction(voice_action)
         placeholder_action = QAction("Other Tools (TBD)", self.menu)
         placeholder_action.setEnabled(False)
         self.menu.addAction(placeholder_action)
@@ -92,6 +143,17 @@ class MainApp:
         quit_action = QAction("Quit", self.menu)
         quit_action.triggered.connect(self.quit)
         self.menu.addAction(quit_action)
+
+    def launch_timer_tool(self):
+        if not self.timer_window:
+            self.timer_window = MobTimerApp(self.log_dir, self.toon_name, self.log_file, self.log_path, self.log_position)
+        self.timer_window.show()
+
+    def launch_voice_notifications(self):
+        if not self.voice_window:
+            self.voice_window = VoiceNotificationsApp(self.log_dir)
+            self.voice_window.update_log_info(self.log_file, self.log_path, self.log_position)
+        self.voice_window.show()
 
     def select_log_directory(self):
         directory = QFileDialog.getExistingDirectory(None, "Select Log Directory", self.log_dir)
@@ -106,14 +168,17 @@ class MainApp:
             self.log_position = 0
             self.load_active_log_file()
 
-    def launch_timer_tool(self):
-        if not self.timer_window:
-            self.timer_window = MobTimerApp(self.log_dir, self.toon_name, self.log_file, self.log_path, self.log_position)
-        self.timer_window.show()
+    def update_voice_settings(self, enabled, triggers):
+        self.voice_enabled = enabled
+        self.triggers = triggers
+        self.settings.setValue("voice_enabled", self.voice_enabled)
+        self.settings.setValue("voice_triggers", self.triggers)
 
     def quit(self):
         if self.log_file:
             self.log_file.close()
+        if self.tts_thread and self.tts_thread.isRunning():
+            self.tts_thread.wait()
         self.app.quit()
 
     def run(self):
