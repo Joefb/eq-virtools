@@ -151,6 +151,18 @@ class VoiceNotificationsApp(QWidget):
         if main_app:
             main_app.update_voice_settings(self.enabled, self.triggers)
 
+    def process_log_line(self, line):
+        if not self.enabled:
+            return
+        for pattern, message in self.triggers.items():
+            if pattern in line:
+                print(f"Voice alert: {message}")
+                if self.tts_thread and self.tts_thread.isRunning():
+                    self.tts_thread.wait()
+                self.tts_thread = TTSThread(message)
+                self.tts_thread.start()
+                break
+
     def update_log_info(self, log_file, log_path, log_position):
         if self.log_file and self.log_file != log_file:
             self.log_file.close()
