@@ -79,20 +79,20 @@ class MainApp:
         try:
             if not os.path.exists(self.log_dir):
                 print(f"Log directory {self.log_dir} does not exist")
-                return
+                return False
             os.chdir(self.log_dir)
             log_files = [f for f in os.listdir() if f.startswith("eqlog_")]
             if not log_files:
-                print(f"No log files found in {self.log_dir}")
-                return
+                print(f"No log files found in {self.log_dir}, will retry")
+                return False
             log_files = sorted(log_files, key=lambda f: os.stat(f).st_mtime, reverse=True)
             new_log_file = log_files[0]
             new_toon = new_log_file.split("_")[1]
-            if new_log_file != self.log_path:
+            if new_log_file != self.log_path or (self.log_file and self.log_file.closed):
                 print(f"Switching to new toon log: {new_log_file} (toon: {new_toon})")
                 self.log_path = new_log_file
                 self.toon_name = new_toon
-                if self.log_file:
+                if self.log_file and not self.log_file.closed:
                     print(f"Closing previous log file: {self.log_path}")
                     self.log_file.close()
                     self.log_file = None
@@ -106,21 +106,36 @@ class MainApp:
                     self.log_file = None
                     self.log_path = None
                     self.log_position = 0
+                    return False
                 if self.timer_window and hasattr(self.timer_window, 'update_toon'):
                     self.timer_window.update_toon(self.toon_name, self.log_file, self.log_path, self.log_position)
                 if self.voice_window and hasattr(self.voice_window, 'update_log_info'):
                     self.voice_window.update_log_info(self.log_file, self.log_path, self.log_position)
+                return True
+            return True
         except Exception as e:
             print(f"Error loading log file: {e}")
             self.log_file = None
             self.log_path = None
             self.log_position = 0
+            return False
 
     def update_log_position(self):
+        try:
+            if self.log_path and os.path.exists(self.log_dir):
+                log_files = [f for f in os.listdir(self.log_dir) if f.startswith("eqlog_")]
+                if log_files:
+                    latest_log = max(log_files, key=lambda f: os.stat(os.path.join(self.log_dir, f)).st_mtime)
+                    if latest_log != self.log_path:
+                        print(f"Detected newer log file: {latest_log}, current: {self.log_path}")
+                        self.load_active_log_file()
+        except Exception as e:
+            print(f"Error checking for new log files: {e}")
+
         if not self.log_file or not os.path.exists(self.log_path) or self.log_file.closed:
             print(f"Log file unavailable (file: {self.log_path}, closed: {self.log_file.closed if self.log_file else True}), attempting to reload")
-            self.load_active_log_file()
-            return
+            if not self.load_active_log_file():
+                return
         try:
             self.log_file.seek(self.log_position)
             new_lines = self.log_file.readlines()
@@ -142,7 +157,6 @@ class MainApp:
                     clean_line = re.sub(r'^\[.*?\]\s', '', line.strip())
                     if clean_line:
                         if hasattr(self.voice_window, 'process_log_line'):
-                            print(f"Processing log line in VoiceNotificationsApp: {clean_line}")
                             self.voice_window.process_log_line(clean_line)
                         else:
                             print(f"Error: VoiceNotificationsApp lacks process_log_line method")
@@ -187,7 +201,7 @@ class MainApp:
             self.log_dir = directory
             self.settings.setValue("log_dir", self.log_dir)
             print(f"Log directory set to: {self.log_dir}")
-            if self.log_file:
+            if self.log_file and not self.log_file.closed:
                 self.log_file.close()
                 self.log_file = None
             self.log_path = None
