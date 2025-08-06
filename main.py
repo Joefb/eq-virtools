@@ -2,12 +2,17 @@ from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QFileDialog
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtCore import QSettings, QTimer, QThread, pyqtSignal
 from timer_app import MobTimerApp
-from voice_notifications_app import VoiceNotificationsApp
+import voice_notifications_app
+import importlib
 import os
 import re
 from gtts import gTTS
 import pygame
 import time
+
+# Ensure latest VoiceNotificationsApp is loaded
+importlib.reload(voice_notifications_app)
+VoiceNotificationsApp = voice_notifications_app.VoiceNotificationsApp
 
 class TTSThread(QThread):
     def __init__(self, text):
@@ -84,23 +89,36 @@ class MainApp:
             new_log_file = log_files[0]
             new_toon = new_log_file.split("_")[1]
             if new_log_file != self.log_path:
-                print(f"Switching to new toon log: {new_log_file}")
+                print(f"Switching to new toon log: {new_log_file} (toon: {new_toon})")
                 self.log_path = new_log_file
                 self.toon_name = new_toon
                 if self.log_file:
+                    print(f"Closing previous log file: {self.log_path}")
                     self.log_file.close()
-                self.log_file = open(new_log_file, "r")
-                self.log_file.seek(0, os.SEEK_END)
-                self.log_position = self.log_file.tell()
+                    self.log_file = None
+                try:
+                    self.log_file = open(new_log_file, "r")
+                    self.log_file.seek(0, os.SEEK_END)
+                    self.log_position = self.log_file.tell()
+                    print(f"Opened new log file: {self.log_path}, position: {self.log_position}")
+                except Exception as e:
+                    print(f"Error opening log file {new_log_file}: {e}")
+                    self.log_file = None
+                    self.log_path = None
+                    self.log_position = 0
                 if self.timer_window and hasattr(self.timer_window, 'update_toon'):
                     self.timer_window.update_toon(self.toon_name, self.log_file, self.log_path, self.log_position)
                 if self.voice_window and hasattr(self.voice_window, 'update_log_info'):
                     self.voice_window.update_log_info(self.log_file, self.log_path, self.log_position)
         except Exception as e:
             print(f"Error loading log file: {e}")
+            self.log_file = None
+            self.log_path = None
+            self.log_position = 0
 
     def update_log_position(self):
-        if not self.log_file or not os.path.exists(self.log_path):
+        if not self.log_file or not os.path.exists(self.log_path) or self.log_file.closed:
+            print(f"Log file unavailable (file: {self.log_path}, closed: {self.log_file.closed if self.log_file else True}), attempting to reload")
             self.load_active_log_file()
             return
         try:
@@ -120,12 +138,20 @@ class MainApp:
                                 self.tts_thread.start()
                                 break
             if self.voice_window and self.voice_window.isVisible():
+                print(f"Processing lines with VoiceNotificationsApp: {self.voice_window}")
                 for line in new_lines:
                     clean_line = re.sub(r'^\[.*?\]\s', '', line.strip())
                     if clean_line:
-                        self.voice_window.process_log_line(clean_line)
+                        if hasattr(self.voice_window, 'process_log_line'):
+                            self.voice_window.process_log_line(clean_line)
+                        else:
+                            print(f"Error: VoiceNotificationsApp lacks process_log_line method")
         except Exception as e:
             print(f"Error updating log position: {e}")
+            self.log_file = None
+            self.log_path = None
+            self.log_position = 0
+            self.load_active_log_file()
 
     def setup_menu(self):
         timer_action = QAction("Timer Tool", self.menu)
@@ -175,7 +201,7 @@ class MainApp:
         self.settings.setValue("voice_triggers", self.triggers)
 
     def quit(self):
-        if self.log_file:
+        if self.log_file and not self.log_file.closed:
             self.log_file.close()
         if self.tts_thread and self.tts_thread.isRunning():
             self.tts_thread.wait()
