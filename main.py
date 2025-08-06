@@ -138,11 +138,11 @@ class MainApp:
                                 self.tts_thread.start()
                                 break
             if self.voice_window and self.voice_window.isVisible():
-                print(f"Processing lines with VoiceNotificationsApp: {self.voice_window}")
                 for line in new_lines:
                     clean_line = re.sub(r'^\[.*?\]\s', '', line.strip())
                     if clean_line:
                         if hasattr(self.voice_window, 'process_log_line'):
+                            print(f"Processing log line in VoiceNotificationsApp: {clean_line}")
                             self.voice_window.process_log_line(clean_line)
                         else:
                             print(f"Error: VoiceNotificationsApp lacks process_log_line method")
