@@ -9,14 +9,16 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
 class MobTimerApp(QWidget):
-    def __init__(self, log_dir, toon_name, log_file, log_path, log_position):
+    def __init__(self, log_dir, toon_name, log_file, log_path, log_position, current_zone, zone_timer):
         super().__init__()
-        self.setWindowTitle("Mob Respawn Timer")
+        self.setWindowTitle("Mob Respawn Timers")
         self.log_dir = log_dir
         self.toon_name = toon_name
         self.log_file = log_file
         self.log_path = log_path
         self.log_position = log_position
+        self.current_zone = current_zone
+        self.zone_timer = zone_timer  # In seconds
         self.timers = {}  # {mob_key: [QLabel, seconds, QTimer, mob_name]}
         self.mob_counts = {}
         self.setup_ui()
@@ -25,18 +27,79 @@ class MobTimerApp(QWidget):
         self.toon_check_timer = QTimer(self)
         self.toon_check_timer.timeout.connect(self.check_for_new_toon)
 
-    def update_toon(self, toon_name, log_file, log_path, log_position):
+    def update_toon(self, toon_name, log_file, log_path, log_position, current_zone, zone_timer):
         self.toon_name = toon_name
         self.log_file = log_file
         self.log_path = log_path
         self.log_position = log_position
+        self.current_zone = current_zone
+        self.zone_timer = zone_timer
         self.toon_label.setText(f"Toon: {self.toon_name}")
+        self.update_zone(current_zone, zone_timer)
+
+    def update_zone(self, current_zone, zone_timer):
+        self.current_zone = current_zone
+        self.zone_timer = zone_timer
+        zone_display = self.get_who_name(self.current_zone)
+        self.zone_label.setText(f"Zone: {zone_display} ({self.zone_timer // 60}:{self.zone_timer % 60:02d})")
+        self.time_input.setPlaceholderText(f"Custom Time (default: {self.zone_timer // 60}:{self.zone_timer % 60:02d})")
+
+    def get_who_name(self, zone_name):
+        # Reverse mapping from zone entry name to /who name
+        zone_to_who = {
+            "Northern Plains of Karana": "Northern Karana",
+            "Eastern Plains of Karana": "Eastern Karana",
+            "Western Plains of Karana": "Western Karana",
+            "East Commonlands": "Eastern Commonlands",
+            "West Commonlands": "Western Commonlands",
+            "Beholder's Maze": "Gorge of King Xorbb",
+            "Highpass Hold": "High Hold",
+            "Innothule Swamp": "Innothule",
+            "Kithicor Forest": "Kithicor",
+            "Lake Rathetear": "Rathetear",
+            "Northern Desert of Ro": "North Ro",
+            "Southern Desert of Ro": "South Ro",
+            "The Feerrott": "Feerrott",
+            "Everfrost Peaks": "Everfrost",
+            "Oasis of Marr": "Oasis",
+            "Clan Runnyeye": "Runnyeye",
+            "Nagafen's Lair": "Solusek B",
+            "Solusek's Eye": "Solusek A",
+            "Splitpaw Lair": "Splitpaw",
+            "The Temple of Solusek Ro": "Solusek Ro",
+            "Qeynos Catacombs": "Qeynos Sewers",
+            "Kerra Island": "Kerra Isle",
+            "Toxxulia Forest": "Toxxulia",
+            "The Warrens": "Warrens",
+            "Ak'Anon": "Ak`Anon",
+            "Kelethin": "Greater Faydark",
+            "Butcherblock Mountains": "Butcherblock",
+            "Kedge Keep": "Kedge",
+            "Mistmoore Castle": "Mistmoore",
+            "The Estate of Unrest": "Unrest",
+            "Burning Wood": "Burning Woods",
+            "The Overthere": "Overthere",
+            "Skyfire Mountains": "Skyfire",
+            "Howling Stones": "Charasis",
+            "Karnor's Castle": "Karnor",
+            "Kurn's Tower": "Kurn",
+            "Mines of Nurga": "Nurga",
+            "Old Sebilis": "Sebilis",
+            "Temple of Droga": "Droga",
+            "The Great Divide": "Great Divide",
+            "Iceclad Ocean": "Iceclad",
+            "Kael Drakkal": "Kael",
+            "Siren's Grotto": "Sirens",
+            "Tower of Frozen Shadow": "Frozen Shadow",
+            "Velketor's Labyrinth": "Velketor"
+        }
+        return zone_to_who.get(zone_name, zone_name)
 
     def showEvent(self, event):
         from main import MainApp  # Import here to avoid circular import
         main_app = QApplication.instance().property("MainApp")
         if main_app:
-            self.update_toon(main_app.toon_name, main_app.log_file, main_app.log_path, main_app.log_position)
+            self.update_toon(main_app.toon_name, main_app.log_file, main_app.log_path, main_app.log_position, main_app.current_zone, main_app.zone_timer)
         if not self.poll_timer.isActive():
             self.poll_timer.start(1000)
         if not self.toon_check_timer.isActive():
@@ -51,8 +114,11 @@ class MobTimerApp(QWidget):
         self.toon_label = QLabel(f"Toon: {self.toon_name}")
         self.toon_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         main_layout.addWidget(self.toon_label)
+        self.zone_label = QLabel(f"Current Zone: {self.get_who_name(self.current_zone)} ({self.zone_timer // 60}:{self.zone_timer % 60:02d})")
+        self.zone_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        main_layout.addWidget(self.zone_label)
         self.time_input = QLineEdit()
-        self.time_input.setPlaceholderText("Zone Respawn Time (e.g. 27:00)")
+        self.time_input.setPlaceholderText(f"Zone Respawn Time (default: {self.zone_timer // 60}:{self.zone_timer % 60:02d})")
         main_layout.addWidget(self.time_input)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -125,16 +191,16 @@ class MobTimerApp(QWidget):
             except AttributeError:
                 return
             mob_key = f"{mob_name}_{int(time() * 1000)}"
-            minutes = 6
-            seconds = 30
             user_time = self.time_input.text().strip()
             if re.match(r"^\d+:\d{2}$", user_time):
                 try:
                     m, s = map(int, user_time.split(":"))
-                    minutes, seconds = m, s
+                    seconds = m * 60 + s
                 except ValueError:
-                    pass
-            self.start_timer(mob_key, mob_name, minutes * 60 + seconds)
+                    seconds = self.zone_timer
+            else:
+                seconds = self.zone_timer
+            self.start_timer(mob_key, mob_name, seconds)
 
     def start_timer(self, mob_key: str, mob_name: str, seconds: int):
         print(f"Starting timer for {mob_key} ({mob_name}, {seconds}s)")
