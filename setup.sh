@@ -42,7 +42,7 @@ detect_distro() {
 install_system_deps() {
     echo "Installing system dependencies..."
     case $DISTRO in
-        ubuntu|debian)
+        ubuntu|debian|pop)
             sudo apt update
             sudo apt install -y python3 python3-pip libasound2 libx11-6 libxcb1
             ;;
