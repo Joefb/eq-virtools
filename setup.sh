@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# setup.sh: Install dependencies for EQ-Virtools on Linux
+# setup.sh: Install dependencies for eq-virtools on Linux
 # Supports Ubuntu, Fedora, Arch
 
 set -e
@@ -8,7 +8,7 @@ set -e
 # Display usage information
 usage() {
     echo "Usage: $0 [--help]"
-    echo "Installs system and Python dependencies for EQ-Virtools."
+    echo "Installs system and Python dependencies for  eq-virtools."
     echo "  --help    Display this help message and exit"
     exit 0
 }
