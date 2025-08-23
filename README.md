@@ -1,25 +1,34 @@
 # EQ-Virtools
 
-EQ-Virtools is a Linux-only utility for EverQuest, providing mob respawn timers and voice notifications from game logs. It features a system tray app with a timer tool and voice alert configuration.
+EQ-Virtools is a Linux-only utility for EverQuest, providing mob respawn timers and voice notifications from game logs. It runs in a system tray with a timer tool and voice alert configuration.
 
 ## Prerequisites
 
-- **Operating System**: Linux (Ubuntu, Fedora, Arch).
-- **Python**: 3.10 or higher.
+- **Operating System**: Linux (Arch, Ubuntu, Fedora, etc.).
+- **Python**: 3.10 or higher (for manual install).
+- **Docker**: Required for containerized setup (optional).
 - **Log Files**: EverQuest logs in `/home/$USER/Games/everquest/Logs` (e.g., `eqlog_CharacterName_server.txt`).
 - **Dependencies**:
-  - System: `python3`, `python3-pip`, `libasound2`, `libx11-6`, `libxcb1`.
-  - Python: `gTTS`, `PyQt6`, `pygame`.
+  - System: `python3`, `python3-pip`, `libasound2`, `libx11-6`, `libxcb1` (manual install).
+  - Python: `gTTS==2.5.1`, `PyQt6==6.7.0`, `pygame==2.5.2` (manual or Docker).
+  - Docker: Includes all dependencies (`libqt6core6`, `libqt6gui6`, `libqt6widgets6`, `libsdl2-2.0-0`, etc.).
 
 ## Installation
+
+### Option 1: Manual Installation
 
 1. Clone the repository:
    ```bash
    git clone https://github.com/your-username/eq-virtools.git
    cd eq-virtools
    ```
-
 2. Install dependencies:
+
+   **Arch Linux**:
+   ```bash
+   sudo pacman -Sy python python-pip alsa-lib libx11 libxcb
+   pip3 install gTTS==2.5.1 PyQt6==6.7.0 pygame==2.5.2
+   ```
 
    **Ubuntu (24.04 or later)**:
    ```bash
@@ -34,19 +43,33 @@ EQ-Virtools is a Linux-only utility for EverQuest, providing mob respawn timers 
    pip3 install gTTS==2.5.1 PyQt6==6.7.0 pygame==2.5.2
    ```
 
-   **Arch Linux**:
+### Option 2: Docker Installation
+
+1. Install Docker:
+   - **Arch**: `sudo pacman -S docker && sudo systemctl enable --now docker`
+   - **Ubuntu**: `sudo apt install docker.io && sudo systemctl enable --now docker`
+   - **Fedora**: `sudo dnf install docker && sudo systemctl enable --now docker`
+2. Clone the repository:
    ```bash
-   sudo pacman -Sy python python-pip alsa-lib libx11 libxcb
-   pip3 install gTTS==2.5.1 PyQt6==6.7.0 pygame==2.5.2
+   git clone https://github.com/your-username/eq-virtools.git
+   cd eq-virtools
+   ```
+3. Build the Docker image:
+   ```bash
+   docker build -t eq-virtools .
+   ```
+4. Run the container, mounting your log directory:
+   ```bash
+   xhost +local:docker
+   docker run --rm -it -v /home/$USER/Games/everquest/Logs:/app/logs --env DISPLAY=$DISPLAY --net=host eq-virtools
    ```
 
 ## Usage
 
 1. Ensure logs are in `/home/$USER/Games/everquest/Logs`.
 2. Run the app:
-   ```bash
-   ./run.sh
-   ```
+   - Manual: `./run.sh`
+   - Docker: See Docker installation step 4.
 3. System tray icon:
    - **Timer Tool**: Shows mob timers with zone detection (e.g., “Zone: Northern Karana (6:40)”).
    - **Voice Notifications**: Configure alerts (e.g., “Root has broken!”).
@@ -64,20 +87,16 @@ EQ-Virtools is a Linux-only utility for EverQuest, providing mob respawn timers 
   ```bash
   aplay /usr/share/sounds/alsa/Front_Center.wav
   ```
-  Install `alsa-utils` if needed (`sudo apt install alsa-utils`).
+  Install `alsa-utils` (`sudo pacman -S alsa-utils`).
 - **Log issues**: Check permissions:
   ```bash
   chmod -R u+rw /home/$USER/Games/everquest/Logs
   ```
-- **Python errors**: Verify Python 3.10+ and packages:
-  ```bash
-  python3 --version
-  pip3 list | grep -E "gTTS|PyQt6|pygame"
-  ```
+- **Docker issues**: Ensure Docker is running and logs are mounted.
 
 ## Contributing
 
-Submit issues or PRs on GitHub. Use feature branches for changes.
+Submit issues or PRs on GitHub. Use feature branches.
 
 ## License
 
