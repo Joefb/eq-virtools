@@ -47,13 +47,18 @@ class VoiceNotificationsApp(QWidget):
         if not self.master_triggers:
             self.master_triggers = {
                 "Your root has broken": "Root has broken!",
-                "resists your spell": "Spell resisted!"
+                " resists your spell": "Spell resisted!"
             }
             self.settings.beginGroup("master_triggers")
             for pattern, message in self.master_triggers.items():
                 self.settings.setValue(self.encode_key(pattern), message)
             self.settings.endGroup()
             self.settings.sync()
+        self.toons = []
+        self.settings.beginGroup("toons")
+        for key in self.settings.allKeys():
+            self.toons.append(self.settings.value(key))
+        self.settings.endGroup()
         self.log_file = None
         self.log_path = None
         self.log_position = 0
@@ -81,12 +86,12 @@ class VoiceNotificationsApp(QWidget):
 
         # Toon management screen
         self.toon_list = QListWidget()
-        self.toon_list.addItem("No toons configured")
+        self.update_toon_list()
         self.layout.addWidget(self.toon_list)
 
         self.button_layout = QHBoxLayout()
         add_toon_button = QPushButton("Add Toon")
-        add_toon_button.clicked.connect(self.add_toon_placeholder)
+        add_toon_button.clicked.connect(self.show_add_toon_ui)
         self.button_layout.addWidget(add_toon_button)
         triggers_button = QPushButton("Triggers")
         triggers_button.clicked.connect(self.show_master_triggers)
@@ -151,22 +156,78 @@ class VoiceNotificationsApp(QWidget):
         self.trigger_layout_widget.hide()
         self.layout.addWidget(self.trigger_layout_widget)
 
+        # Add Toon screen (hidden initially)
+        self.add_toon_layout = QVBoxLayout()
+        self.add_toon_header_layout = QHBoxLayout()
+        self.add_toon_back_button = QPushButton("<")
+        self.add_toon_back_button.setFixedWidth(30)
+        self.add_toon_back_button.clicked.connect(self.show_toon_list)
+        self.add_toon_header_layout.addWidget(self.add_toon_back_button)
+        self.add_toon_title = QLabel("Add Toon")
+        self.add_toon_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.add_toon_title.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.add_toon_header_layout.addWidget(self.add_toon_title)
+        self.add_toon_header_layout.addStretch()
+        self.add_toon_layout.addLayout(self.add_toon_header_layout)
+
+        self.toon_input = QLineEdit()
+        self.toon_input.setPlaceholderText("Enter toon name (e.g., Bob)")
+        self.add_toon_layout.addWidget(self.toon_input)
+
+        self.add_toon_button_layout = QHBoxLayout()
+        add_toon_submit_button = QPushButton("Add")
+        add_toon_submit_button.clicked.connect(self.add_toon)
+        self.add_toon_button_layout.addWidget(add_toon_submit_button)
+        self.add_toon_button_layout_widget = QWidget()
+        self.add_toon_button_layout_widget.setLayout(self.add_toon_button_layout)
+        self.add_toon_layout.addWidget(self.add_toon_button_layout_widget)
+
+        self.add_toon_layout_widget = QWidget()
+        self.add_toon_layout_widget.setLayout(self.add_toon_layout)
+        self.add_toon_layout_widget.hide()
+        self.layout.addWidget(self.add_toon_layout_widget)
+
         self.setLayout(self.layout)
         self.load_triggers()
 
-    def add_toon_placeholder(self):
-        pass
+    def update_toon_list(self):
+        self.toon_list.clear()
+        if not self.toons:
+            self.toon_list.addItem("No toons configured")
+        else:
+            for toon in self.toons:
+                self.toon_list.addItem(toon)
+
+    def show_add_toon_ui(self):
+        self.toon_list.hide()
+        self.button_layout_widget.hide()
+        self.trigger_layout_widget.hide()
+        self.add_toon_layout_widget.show()
 
     def show_master_triggers(self):
         self.toon_list.hide()
         self.button_layout_widget.hide()
+        self.add_toon_layout_widget.hide()
         self.trigger_layout_widget.show()
         self.load_triggers()
 
     def show_toon_list(self):
         self.trigger_layout_widget.hide()
+        self.add_toon_layout_widget.hide()
         self.toon_list.show()
         self.button_layout_widget.show()
+
+    def add_toon(self):
+        toon_name = self.toon_input.text().strip()
+        if toon_name and toon_name not in self.toons:
+            self.toons.append(toon_name)
+            self.settings.beginGroup("toons")
+            self.settings.setValue(str(len(self.toons)), toon_name)
+            self.settings.endGroup()
+            self.settings.sync()
+            self.update_toon_list()
+            self.toon_input.clear()
+            self.show_toon_list()
 
     def load_triggers(self):
         self.table.itemChanged.disconnect(self.update_trigger)
