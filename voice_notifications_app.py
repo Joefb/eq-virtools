@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox, QLabel
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox, QLabel, QListWidget
 from PyQt6.QtCore import QSettings, Qt, QThread
 from gtts import gTTS
 import pygame
@@ -30,7 +30,7 @@ class VoiceNotificationsApp(QWidget):
     def __init__(self, log_dir):
         super().__init__()
         self.setWindowTitle("Voice Notifications")
-        self.log_dir = log_dir
+        self.log_dir = log_dir if os.path.exists(log_dir) else "/app/logs"
         config_dir = os.path.abspath("./config")
         os.makedirs(config_dir, exist_ok=True)
         self.settings = QSettings(os.path.join(config_dir, "voice-notifications.ini"), QSettings.Format.IniFormat)
