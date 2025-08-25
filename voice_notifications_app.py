@@ -1,5 +1,5 @@
 import re
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox, QApplication, QListWidget
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox, QApplication, QListWidget, QLabel
 from PyQt6.QtCore import QSettings, Qt, QThread, pyqtSignal
 from gtts import gTTS
 import pygame
@@ -44,25 +44,40 @@ class VoiceNotificationsApp(QWidget):
 
     def setup_ui(self):
         self.resize(600, 500)
-        layout = QVBoxLayout()
-        layout.setSpacing(4)
-        layout.setContentsMargins(4, 4, 4, 4)
+        self.layout = QVBoxLayout()
+        self.layout.setSpacing(4)
+        self.layout.setContentsMargins(4, 4, 4, 4)
 
         # Toon management screen
         self.toon_list = QListWidget()
         self.toon_list.addItem("No toons configured")  # Placeholder
-        layout.addWidget(self.toon_list)
+        self.layout.addWidget(self.toon_list)
 
-        button_layout = QHBoxLayout()
+        self.button_layout = QHBoxLayout()
         add_toon_button = QPushButton("Add Toon")
         add_toon_button.clicked.connect(self.add_toon_placeholder)
-        button_layout.addWidget(add_toon_button)
+        self.button_layout.addWidget(add_toon_button)
         triggers_button = QPushButton("Triggers")
         triggers_button.clicked.connect(self.show_master_triggers)
-        button_layout.addWidget(triggers_button)
-        layout.addLayout(button_layout)
+        self.button_layout.addWidget(triggers_button)
+        self.button_layout_widget = QWidget()
+        self.button_layout_widget.setLayout(self.button_layout)
+        self.layout.addWidget(self.button_layout_widget)
 
-        # Trigger table (hidden initially)
+        # Trigger screen (hidden initially)
+        self.trigger_layout = QVBoxLayout()
+        self.trigger_header_layout = QHBoxLayout()
+        self.back_button = QPushButton("<")
+        self.back_button.setFixedWidth(30)
+        self.back_button.clicked.connect(self.show_toon_list)
+        self.trigger_header_layout.addWidget(self.back_button)
+        self.trigger_title = QLabel("Triggers")
+        self.trigger_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.trigger_title.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.trigger_header_layout.addWidget(self.trigger_title)
+        self.trigger_header_layout.addStretch()
+        self.trigger_layout.addLayout(self.trigger_header_layout)
+
         self.table = QTableWidget()
         self.table.setColumnCount(2)
         self.table.setHorizontalHeaderLabels(["Log Pattern", "Spoken Message"])
@@ -70,10 +85,8 @@ class VoiceNotificationsApp(QWidget):
         self.table.setColumnWidth(1, 280)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.itemChanged.connect(self.update_trigger)
-        self.table.hide()
-        layout.addWidget(self.table)
+        self.trigger_layout.addWidget(self.table)
 
-        # Add trigger inputs (hidden initially)
         self.input_layout = QHBoxLayout()
         self.pattern_input = QLineEdit()
         self.pattern_input.setPlaceholderText("Enter log pattern (e.g., Your root has broken)")
@@ -83,34 +96,39 @@ class VoiceNotificationsApp(QWidget):
         self.input_layout.addWidget(self.message_input)
         self.input_layout_widget = QWidget()
         self.input_layout_widget.setLayout(self.input_layout)
-        self.input_layout_widget.hide()
-        layout.addWidget(self.input_layout_widget)
+        self.trigger_layout.addWidget(self.input_layout_widget)
 
-        # Add and delete buttons (hidden initially)
-        self.button_layout = QHBoxLayout()
+        self.trigger_button_layout = QHBoxLayout()
         add_button = QPushButton("Add Trigger")
         add_button.clicked.connect(self.add_trigger)
-        self.button_layout.addWidget(add_button)
+        self.trigger_button_layout.addWidget(add_button)
         delete_button = QPushButton("Delete Selected")
         delete_button.clicked.connect(self.delete_trigger)
-        self.button_layout.addWidget(delete_button)
-        self.button_layout_widget = QWidget()
-        self.button_layout_widget.setLayout(self.button_layout)
-        self.button_layout_widget.hide()
-        layout.addWidget(self.button_layout_widget)
+        self.trigger_button_layout.addWidget(delete_button)
+        self.trigger_button_layout_widget = QWidget()
+        self.trigger_button_layout_widget.setLayout(self.trigger_button_layout)
+        self.trigger_layout.addWidget(self.trigger_button_layout_widget)
 
-        self.setLayout(layout)
+        self.trigger_layout_widget = QWidget()
+        self.trigger_layout_widget.setLayout(self.trigger_layout)
+        self.trigger_layout_widget.hide()
+        self.layout.addWidget(self.trigger_layout_widget)
+
+        self.setLayout(self.layout)
 
     def add_toon_placeholder(self):
         print("Add Toon clicked (placeholder)")
 
     def show_master_triggers(self):
         self.toon_list.hide()
-        self.findChild(QHBoxLayout).itemAt(0).widget().hide()  # Hide buttons
-        self.table.show()
-        self.input_layout_widget.show()
-        self.button_layout_widget.show()
+        self.button_layout_widget.hide()
+        self.trigger_layout_widget.show()
         self.load_triggers()
+
+    def show_toon_list(self):
+        self.trigger_layout_widget.hide()
+        self.toon_list.show()
+        self.button_layout_widget.show()
 
     def load_triggers(self):
         self.table.itemChanged.disconnect(self.update_trigger)
