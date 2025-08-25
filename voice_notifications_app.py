@@ -34,14 +34,14 @@ class VoiceNotificationsApp(QWidget):
         self.log_dir = log_dir if os.path.exists(log_dir) else "/app/logs"
         config_dir = os.path.abspath("./config")
         os.makedirs(config_dir, exist_ok=True)
-        self.settings = QSettings(os.path.join(os.path.dirname(__file__), "config", "voice-notifications.ini"), QSettings.Format.IniFormat)
+        self.settings = QSettings(os.path.join(config_dir, "voice-notifications.ini"), QSettings.Format.IniFormat)
         self.settings.remove("General")  # Clear stale [General] section
         self.tts_thread = None
         self.enabled = self.settings.value("voice_enabled", False, type=bool)
         self.master_triggers = {}
         self.settings.beginGroup("master_triggers")
         for key in self.settings.allKeys():
-            decoded_key = urllib.parse.unquote(key)
+            decoded_key = self.decode_key(key)
             self.master_triggers[decoded_key] = self.settings.value(key)
         self.settings.endGroup()
         if not self.master_triggers:
@@ -50,6 +50,14 @@ class VoiceNotificationsApp(QWidget):
         self.log_path = None
         self.log_position = 0
         self.setup_ui()
+
+    def encode_key(self, key):
+        """Replace spaces with underscores for QSettings keys."""
+        return key.replace(" ", "_")
+
+    def decode_key(self, key):
+        """Replace underscores with spaces for trigger patterns."""
+        return key.replace("_", " ")
 
     def setup_ui(self):
         self.resize(600, 500)
@@ -177,7 +185,7 @@ class VoiceNotificationsApp(QWidget):
         if pattern and message:
             self.master_triggers[pattern] = message
             self.settings.beginGroup("master_triggers")
-            self.settings.setValue(pattern, message)
+            self.settings.setValue(self.encode_key(pattern), message)
             self.settings.endGroup()
             self.settings.sync()
             self.load_triggers()
@@ -191,7 +199,7 @@ class VoiceNotificationsApp(QWidget):
             if pattern in self.master_triggers:
                 del self.master_triggers[pattern]
                 self.settings.beginGroup("master_triggers")
-                self.settings.remove(pattern)
+                self.settings.remove(self.encode_key(pattern))
                 self.settings.endGroup()
                 self.settings.sync()
                 self.load_triggers()
@@ -208,11 +216,11 @@ class VoiceNotificationsApp(QWidget):
                 if old_pattern and old_pattern in self.master_triggers:
                     del self.master_triggers[old_pattern]
                     self.settings.beginGroup("master_triggers")
-                    self.settings.remove(old_pattern)
+                    self.settings.remove(self.encode_key(old_pattern))
                     self.settings.endGroup()
                 self.master_triggers[new_pattern] = new_message
                 self.settings.beginGroup("master_triggers")
-                self.settings.setValue(new_pattern, new_message)
+                self.settings.setValue(self.encode_key(new_pattern), new_message)
                 self.settings.endGroup()
                 self.settings.sync()
                 self.load_triggers()
