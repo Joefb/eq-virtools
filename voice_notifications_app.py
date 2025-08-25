@@ -34,7 +34,13 @@ class VoiceNotificationsApp(QWidget):
         self.settings = QSettings("./config/voice-notifications.ini", QSettings.Format.IniFormat)
         self.tts_thread = None
         self.enabled = self.settings.value("voice_enabled", False, type=bool)
-        self.master_triggers = self.settings.value("master_triggers", {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}, type=dict)
+        self.master_triggers = {}
+        self.settings.beginGroup("master_triggers")
+        for key in self.settings.allKeys():
+            self.master_triggers[key] = self.settings.value(key)
+        self.settings.endGroup()
+        if not self.master_triggers:
+            self.master_triggers = {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}
         self.triggers = {}  # Will be toon-specific later
         self.log_file = None
         self.log_path = None
@@ -77,6 +83,12 @@ class VoiceNotificationsApp(QWidget):
         self.trigger_header_layout.addWidget(self.trigger_title)
         self.trigger_header_layout.addStretch()
         self.trigger_layout.addLayout(self.trigger_header_layout)
+
+        # Search bar for trigger screen
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search log patterns (e.g., root)")
+        self.search_input.textChanged.connect(self.filter_triggers)
+        self.trigger_layout.addWidget(self.search_input)
 
         self.table = QTableWidget()
         self.table.setColumnCount(2)
@@ -133,16 +145,21 @@ class VoiceNotificationsApp(QWidget):
     def load_triggers(self):
         self.table.itemChanged.disconnect(self.update_trigger)
         self.table.setRowCount(0)
+        search_text = self.search_input.text().strip().lower()
         for pattern, message in self.master_triggers.items():
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            pattern_item = QTableWidgetItem(pattern)
-            pattern_item.setFlags(pattern_item.flags() | Qt.ItemFlag.ItemIsEditable)
-            self.table.setItem(row, 0, pattern_item)
-            message_item = QTableWidgetItem(message)
-            message_item.setFlags(message_item.flags() | Qt.ItemFlag.ItemIsEditable)
-            self.table.setItem(row, 1, message_item)
+            if search_text in pattern.lower() or not search_text:
+                row = self.table.rowCount()
+                self.table.insertRow(row)
+                pattern_item = QTableWidgetItem(pattern)
+                pattern_item.setFlags(pattern_item.flags() | Qt.ItemFlag.ItemIsEditable)
+                self.table.setItem(row, 0, pattern_item)
+                message_item = QTableWidgetItem(message)
+                message_item.setFlags(message_item.flags() | Qt.ItemFlag.ItemIsEditable)
+                self.table.setItem(row, 1, message_item)
         self.table.itemChanged.connect(self.update_trigger)
+
+    def filter_triggers(self):
+        self.load_triggers()
 
     def add_trigger(self):
         pattern = self.pattern_input.text().strip()
@@ -153,10 +170,10 @@ class VoiceNotificationsApp(QWidget):
             self.settings.setValue(pattern, message)
             self.settings.endGroup()
             self.settings.sync()
+            print(f"Saved trigger: {pattern} = {message}")
             self.load_triggers()
             self.pattern_input.clear()
             self.message_input.clear()
-            self.update_main_app_settings()
 
     def delete_trigger(self):
         selected = self.table.selectedItems()
@@ -168,8 +185,8 @@ class VoiceNotificationsApp(QWidget):
                 self.settings.remove(pattern)
                 self.settings.endGroup()
                 self.settings.sync()
+                print(f"Deleted trigger: {pattern}")
                 self.load_triggers()
-                self.update_main_app_settings()
 
     def update_trigger(self, item):
         row = item.row()
@@ -179,11 +196,7 @@ class VoiceNotificationsApp(QWidget):
             new_pattern = pattern_item.text().strip()
             new_message = message_item.text().strip()
             if new_pattern and new_message:
-                old_pattern = None
-                for p, m in list(self.master_triggers.items()):
-                    if m == self.table.item(row, 1).text() and p != new_pattern:
-                        old_pattern = p
-                        break
+                old_pattern = next((p for p, m in self.master_triggers.items() if p != new_pattern and m == self.table.item(row, 1).text()), None)
                 if old_pattern and old_pattern in self.master_triggers:
                     del self.master_triggers[old_pattern]
                     self.settings.beginGroup("master_triggers")
@@ -194,7 +207,8 @@ class VoiceNotificationsApp(QWidget):
                 self.settings.setValue(new_pattern, new_message)
                 self.settings.endGroup()
                 self.settings.sync()
-                self.update_main_app_settings()
+                print(f"Updated trigger: {new_pattern} = {new_message}")
+                self.load_triggers()
 
     def toggle_notifications(self, state):
         self.enabled = state == Qt.CheckState.Checked.value
