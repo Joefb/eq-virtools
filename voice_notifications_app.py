@@ -28,10 +28,11 @@ class TTSThread(QThread):
             print(f"TTS error: {e}")
 
 class VoiceNotificationsApp(QWidget):
-    def __init__(self, log_dir):
+    def __init__(self, log_dir, toon_name="Unknown"):
         super().__init__()
         self.setWindowTitle("Voice Notifications")
         self.log_dir = log_dir if os.path.exists(log_dir) else "/app/logs"
+        self.current_toon = toon_name
         config_dir = os.path.abspath("./config")
         os.makedirs(config_dir, exist_ok=True)
         self.settings = QSettings(os.path.join(config_dir, "voice-notifications.ini"), QSettings.Format.IniFormat)
@@ -66,7 +67,6 @@ class VoiceNotificationsApp(QWidget):
             for key in self.settings.allKeys():
                 self.toon_triggers[toon].append(self.decode_key(key))
             self.settings.endGroup()
-        self.current_toon = "Unknown"  # Will be updated by main.py
         self.log_file = None
         self.log_path = None
         self.log_position = 0
@@ -382,7 +382,6 @@ class VoiceNotificationsApp(QWidget):
                 self.settings.beginGroup("master_triggers")
                 self.settings.remove(self.encode_key(pattern))
                 self.settings.endGroup()
-                # Remove pattern from all toon triggers
                 for toon in self.toon_triggers:
                     if pattern in self.toon_triggers[toon]:
                         self.toon_triggers[toon].remove(pattern)
@@ -461,15 +460,13 @@ class VoiceNotificationsApp(QWidget):
                     self.tts_thread.start()
                     break
 
-    def update_log_info(self, log_file, log_path, log_position):
+    def update_log_info(self, log_file, log_path, log_position, toon_name):
         if self.log_file and self.log_file != log_file:
             self.log_file.close()
         self.log_file = log_file
         self.log_path = log_path
         self.log_position = log_position
-        # Update current toon from log file name
-        if log_path and os.path.basename(log_path).startswith("eqlog_"):
-            self.current_toon = os.path.basename(log_path).split("_")[1]
+        self.current_toon = toon_name
 
     def closeEvent(self, event):
         if self.tts_thread and self.tts_thread.isRunning():
