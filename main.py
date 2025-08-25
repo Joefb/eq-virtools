@@ -208,8 +208,12 @@ class MainApp:
         self.app = QApplication([])
         self.app.setQuitOnLastWindowClosed(False)
         self.app.setProperty("MainApp", self)
-        self.settings = QSettings("./config/main-app.ini", QSettings.Format.IniFormat)
-        self.log_dir = self.settings.value("log_dir", os.getenv("LOG_DIR", "/app/logs"))
+        # Ensure config directory exists
+        config_dir = os.path.abspath("./config")
+        os.makedirs(config_dir, exist_ok=True)
+        self.config_file = os.path.join(config_dir, "main-app.ini")
+        self.settings = QSettings(self.config_file, QSettings.Format.IniFormat)
+        self.log_dir = self.settings.value("General/log_dir", os.getenv("LOG_DIR", "/app/logs"), type=str)
         self.log_path = None
         self.log_file = None
         self.log_position = 0
@@ -219,24 +223,13 @@ class MainApp:
         self.timer_window = None
         self.voice_window = None
         self.tts_thread = None
-        self.voice_enabled = self.settings.value("voice_enabled", False, type=bool)
-        self.triggers = self.settings.value("voice_triggers", {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}, type=dict)
         self.load_active_log_file()
         icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "tray-icon.png"))
-        print(f"Loading icon from: {icon_path}")
         icon = QIcon(icon_path)
         self.tray = QSystemTrayIcon(icon)
         if icon.isNull():
-            print(f"Failed to load icon, using fallback")
             self.tray.setIcon(QIcon.fromTheme("application-x-executable"))
-        else:
-            print(f"Icon loaded successfully")
         self.tray.setVisible(True)
-        print(f"Tray visible: {self.tray.isVisible()}")
-        if self.tray.isSystemTrayAvailable():
-            print(f"System tray available")
-        else:
-            print(f"System tray unavailable")
         self.menu = QMenu()
         self.setup_menu()
         self.tray.setContextMenu(self.menu)
@@ -249,12 +242,10 @@ class MainApp:
             if not os.path.exists(self.log_dir):
                 print(f"Log directory {self.log_dir} does not exist")
                 return False
-            os.chdir(self.log_dir)
-            log_files = [f for f in os.listdir() if f.startswith("eqlog_")]
+            log_files = [f for f in os.listdir(self.log_dir) if f.startswith("eqlog_")]
             if not log_files:
-                print(f"No log files found in {self.log_dir}, will retry")
                 return False
-            log_files = sorted(log_files, key=lambda f: os.stat(f).st_mtime, reverse=True)
+            log_files = sorted(log_files, key=lambda f: os.stat(os.path.join(self.log_dir, f)).st_mtime, reverse=True)
             new_log_file = log_files[0]
             new_toon = new_log_file.split("_")[1]
             if new_log_file != self.log_path or (self.log_file and self.log_file.closed):
@@ -266,7 +257,7 @@ class MainApp:
                     self.log_file.close()
                     self.log_file = None
                 try:
-                    self.log_file = open(new_log_file, "r")
+                    self.log_file = open(os.path.join(self.log_dir, new_log_file), "r")
                     self.log_file.seek(0, os.SEEK_END)
                     self.log_position = self.log_file.tell()
                     print(f"Opened new log file: {self.log_path}, position: {self.log_position}")
@@ -291,21 +282,9 @@ class MainApp:
 
     def update_log_position(self):
         try:
-            if self.log_path and os.path.exists(self.log_dir):
-                log_files = [f for f in os.listdir(self.log_dir) if f.startswith("eqlog_")]
-                if log_files:
-                    latest_log = max(log_files, key=lambda f: os.stat(os.path.join(self.log_dir, f)).st_mtime)
-                    if latest_log != self.log_path:
-                        print(f"Detected newer log file: {latest_log}, current: {self.log_path}")
-                        self.load_active_log_file()
-        except Exception as e:
-            print(f"Error checking for new log files: {e}")
-
-        if not self.log_file or not os.path.exists(self.log_path) or self.log_file.closed:
-            print(f"Log file unavailable (file: {self.log_path}, closed: {self.log_file.closed if self.log_file else True}), attempting to reload")
-            if not self.load_active_log_file():
-                return
-        try:
+            if not self.log_file or not os.path.exists(self.log_path) or self.log_file.closed:
+                if not self.load_active_log_file():
+                    return
             self.log_file.seek(self.log_position)
             new_lines = self.log_file.readlines()
             self.log_position = self.log_file.tell()
@@ -325,20 +304,10 @@ class MainApp:
                         zone_name = WHO_TO_ZONE.get(who_multi.group(1), who_multi.group(1))
                     if zone_name and zone_name != self.current_zone:
                         self.current_zone = zone_name
-                        self.zone_timer = ZONE_TIMERS.get(zone_name, 400)  # Default 6:40
+                        self.zone_timer = ZONE_TIMERS.get(zone_name, 400)
                         print(f"Detected zone: {self.current_zone}, timer: {self.zone_timer} seconds")
                         if self.timer_window and hasattr(self.timer_window, 'update_zone'):
                             self.timer_window.update_zone(self.current_zone, self.zone_timer)
-                    # Voice notifications
-                    if self.voice_enabled and (not self.voice_window or not self.voice_window.isVisible()):
-                        for pattern, message in self.triggers.items():
-                            if pattern in clean_line:
-                                print(f"Voice alert: {message}")
-                                if self.tts_thread and self.tts_thread.isRunning():
-                                    self.tts_thread.wait()
-                                self.tts_thread = TTSThread(message)
-                                self.tts_thread.start()
-                                break
                     if self.voice_window and self.voice_window.isVisible():
                         if hasattr(self.voice_window, 'process_log_line'):
                             self.voice_window.process_log_line(clean_line)
@@ -358,7 +327,7 @@ class MainApp:
         voice_action = QAction("Voice Notifications", self.menu)
         voice_action.triggered.connect(self.launch_voice_notifications)
         self.menu.addAction(voice_action)
-        placeholder_action = QAction("Other Tools (TBD)", self.menu)
+        placeholder_action = QAction("Other Tools (TBD", self.menu)
         placeholder_action.setEnabled(False)
         self.menu.addAction(placeholder_action)
         settings_action = QAction("Set Log Directory", self.menu)
@@ -375,7 +344,7 @@ class MainApp:
 
     def launch_voice_notifications(self):
         if not self.voice_window:
-            self.voice_window = VoiceNotificationsApp(self.log_dir)
+            self.voice_window = voice_notifications_app.VoiceNotificationsApp(self.log_dir)
             self.voice_window.update_log_info(self.log_file, self.log_path, self.log_position)
         self.voice_window.show()
 
@@ -383,8 +352,10 @@ class MainApp:
         directory = QFileDialog.getExistingDirectory(None, "Select Log Directory", self.log_dir)
         if directory:
             self.log_dir = directory
+            self.settings.beginGroup("General")
             self.settings.setValue("log_dir", self.log_dir)
-            print(f"Log directory set to: {self.log_dir}")
+            self.settings.endGroup()
+            self.settings.sync()
             if self.log_file and not self.log_file.closed:
                 self.log_file.close()
                 self.log_file = None
@@ -394,17 +365,9 @@ class MainApp:
             self.zone_timer = 400
             self.load_active_log_file()
 
-    def update_voice_settings(self, enabled, triggers):
-        self.voice_enabled = enabled
-        self.triggers = triggers
-        self.settings.setValue("voice_enabled", self.voice_enabled)
-        self.settings.setValue("voice_triggers", self.triggers)
-
     def quit(self):
         if self.log_file and not self.log_file.closed:
             self.log_file.close()
-        if self.tts_thread and self.tts_thread.isRunning():
-            self.tts_thread.wait()
         self.app.quit()
 
     def run(self):

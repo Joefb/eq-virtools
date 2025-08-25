@@ -1,10 +1,11 @@
-import re
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox, QApplication, QListWidget, QLabel
-from PyQt6.QtCore import QSettings, Qt, QThread, pyqtSignal
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox, QLabel, QListWidget
+from PyQt6.QtCore import QSettings, Qt, QThread
 from gtts import gTTS
 import pygame
 import os
+import re
 import time
+import urllib.parse
 
 class TTSThread(QThread):
     def __init__(self, text):
@@ -30,23 +31,41 @@ class VoiceNotificationsApp(QWidget):
     def __init__(self, log_dir):
         super().__init__()
         self.setWindowTitle("Voice Notifications")
-        self.log_dir = log_dir
-        self.settings = QSettings("./config/voice-notifications.ini", QSettings.Format.IniFormat)
+        self.log_dir = log_dir if os.path.exists(log_dir) else "/app/logs"
+        config_dir = os.path.abspath("./config")
+        os.makedirs(config_dir, exist_ok=True)
+        self.settings = QSettings(os.path.join(config_dir, "voice-notifications.ini"), QSettings.Format.IniFormat)
+        self.settings.remove("General")  # Clear stale [General] section
         self.tts_thread = None
         self.enabled = self.settings.value("voice_enabled", False, type=bool)
         self.master_triggers = {}
         self.settings.beginGroup("master_triggers")
         for key in self.settings.allKeys():
-            self.master_triggers[key] = self.settings.value(key)
+            decoded_key = self.decode_key(key)
+            self.master_triggers[decoded_key] = self.settings.value(key)
         self.settings.endGroup()
         if not self.master_triggers:
-            self.master_triggers = {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}
-        self.triggers = {}  # Will be toon-specific later
+            self.master_triggers = {
+                "Your root has broken": "Root has broken!",
+                "resists your spell": "Spell resisted!"
+            }
+            self.settings.beginGroup("master_triggers")
+            for pattern, message in self.master_triggers.items():
+                self.settings.setValue(self.encode_key(pattern), message)
+            self.settings.endGroup()
+            self.settings.sync()
         self.log_file = None
         self.log_path = None
         self.log_position = 0
         self.setup_ui()
-        self.update_main_app_settings()
+
+    def encode_key(self, key):
+        """Replace spaces with underscores for QSettings keys."""
+        return key.replace(" ", "_")
+
+    def decode_key(self, key):
+        """Replace underscores with spaces for trigger patterns."""
+        return key.replace("_", " ")
 
     def setup_ui(self):
         self.resize(600, 500)
@@ -54,9 +73,15 @@ class VoiceNotificationsApp(QWidget):
         self.layout.setSpacing(4)
         self.layout.setContentsMargins(4, 4, 4, 4)
 
+        # Enable checkbox
+        self.enable_checkbox = QCheckBox("Enable Voice Notifications")
+        self.enable_checkbox.setChecked(self.enabled)
+        self.enable_checkbox.stateChanged.connect(self.toggle_notifications)
+        self.layout.addWidget(self.enable_checkbox)
+
         # Toon management screen
         self.toon_list = QListWidget()
-        self.toon_list.addItem("No toons configured")  # Placeholder
+        self.toon_list.addItem("No toons configured")
         self.layout.addWidget(self.toon_list)
 
         self.button_layout = QHBoxLayout()
@@ -127,9 +152,10 @@ class VoiceNotificationsApp(QWidget):
         self.layout.addWidget(self.trigger_layout_widget)
 
         self.setLayout(self.layout)
+        self.load_triggers()
 
     def add_toon_placeholder(self):
-        print("Add Toon clicked (placeholder)")
+        pass
 
     def show_master_triggers(self):
         self.toon_list.hide()
@@ -167,10 +193,9 @@ class VoiceNotificationsApp(QWidget):
         if pattern and message:
             self.master_triggers[pattern] = message
             self.settings.beginGroup("master_triggers")
-            self.settings.setValue(pattern, message)
+            self.settings.setValue(self.encode_key(pattern), message)
             self.settings.endGroup()
             self.settings.sync()
-            print(f"Saved trigger: {pattern} = {message}")
             self.load_triggers()
             self.pattern_input.clear()
             self.message_input.clear()
@@ -182,10 +207,9 @@ class VoiceNotificationsApp(QWidget):
             if pattern in self.master_triggers:
                 del self.master_triggers[pattern]
                 self.settings.beginGroup("master_triggers")
-                self.settings.remove(pattern)
+                self.settings.remove(self.encode_key(pattern))
                 self.settings.endGroup()
                 self.settings.sync()
-                print(f"Deleted trigger: {pattern}")
                 self.load_triggers()
 
     def update_trigger(self, item):
@@ -200,34 +224,25 @@ class VoiceNotificationsApp(QWidget):
                 if old_pattern and old_pattern in self.master_triggers:
                     del self.master_triggers[old_pattern]
                     self.settings.beginGroup("master_triggers")
-                    self.settings.remove(old_pattern)
+                    self.settings.remove(self.encode_key(old_pattern))
                     self.settings.endGroup()
                 self.master_triggers[new_pattern] = new_message
                 self.settings.beginGroup("master_triggers")
-                self.settings.setValue(new_pattern, new_message)
+                self.settings.setValue(self.encode_key(new_pattern), new_message)
                 self.settings.endGroup()
                 self.settings.sync()
-                print(f"Updated trigger: {new_pattern} = {new_message}")
                 self.load_triggers()
 
     def toggle_notifications(self, state):
         self.enabled = state == Qt.CheckState.Checked.value
         self.settings.setValue("voice_enabled", self.enabled)
         self.settings.sync()
-        self.update_main_app_settings()
-
-    def update_main_app_settings(self):
-        from main import MainApp
-        main_app = QApplication.instance().property("MainApp")
-        if main_app:
-            main_app.update_voice_settings(self.enabled, self.triggers)
 
     def process_log_line(self, line):
         if not self.enabled:
             return
-        for pattern, message in self.triggers.items():
+        for pattern, message in self.master_triggers.items():
             if pattern in line:
-                print(f"Voice alert: {message}")
                 if self.tts_thread and self.tts_thread.isRunning():
                     self.tts_thread.wait()
                 self.tts_thread = TTSThread(message)
