@@ -5,6 +5,7 @@ import pygame
 import os
 import re
 import time
+import urllib.parse
 
 class TTSThread(QThread):
     def __init__(self, text):
@@ -34,12 +35,14 @@ class VoiceNotificationsApp(QWidget):
         config_dir = os.path.abspath("./config")
         os.makedirs(config_dir, exist_ok=True)
         self.settings = QSettings(os.path.join(config_dir, "voice-notifications.ini"), QSettings.Format.IniFormat)
+        self.settings.remove("General")  # Clear stale [General] section
         self.tts_thread = None
         self.enabled = self.settings.value("voice_enabled", False, type=bool)
         self.master_triggers = {}
         self.settings.beginGroup("master_triggers")
         for key in self.settings.allKeys():
-            self.master_triggers[key] = self.settings.value(key)
+            decoded_key = urllib.parse.unquote(key)
+            self.master_triggers[decoded_key] = self.settings.value(key)
         self.settings.endGroup()
         if not self.master_triggers:
             self.master_triggers = {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}
