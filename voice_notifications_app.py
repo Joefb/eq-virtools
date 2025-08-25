@@ -59,6 +59,14 @@ class VoiceNotificationsApp(QWidget):
         for key in self.settings.allKeys():
             self.toons.append(self.settings.value(key))
         self.settings.endGroup()
+        self.toon_triggers = {}
+        for toon in self.toons:
+            self.toon_triggers[toon] = []
+            self.settings.beginGroup(f"toon_triggers/{toon}")
+            for key in self.settings.allKeys():
+                self.toon_triggers[toon].append(self.decode_key(key))
+            self.settings.endGroup()
+        self.current_toon = "Unknown"  # Will be updated by main.py
         self.log_file = None
         self.log_path = None
         self.log_position = 0
@@ -86,6 +94,7 @@ class VoiceNotificationsApp(QWidget):
 
         # Toon management screen
         self.toon_list = QListWidget()
+        self.toon_list.itemDoubleClicked.connect(self.show_toon_triggers_ui)
         self.update_toon_list()
         self.layout.addWidget(self.toon_list)
 
@@ -187,6 +196,56 @@ class VoiceNotificationsApp(QWidget):
         self.add_toon_layout_widget.hide()
         self.layout.addWidget(self.add_toon_layout_widget)
 
+        # Add Toon Triggers screen (hidden initially)
+        self.toon_triggers_layout = QVBoxLayout()
+        self.toon_triggers_header_layout = QHBoxLayout()
+        self.toon_triggers_back_button = QPushButton("<")
+        self.toon_triggers_back_button.setFixedWidth(30)
+        self.toon_triggers_back_button.clicked.connect(self.show_toon_list)
+        self.toon_triggers_header_layout.addWidget(self.toon_triggers_back_button)
+        self.toon_triggers_title = QLabel("Triggers for Toon")
+        self.toon_triggers_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.toon_triggers_title.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.toon_triggers_header_layout.addWidget(self.toon_triggers_title)
+        self.toon_triggers_header_layout.addStretch()
+        self.toon_triggers_layout.addLayout(self.toon_triggers_header_layout)
+
+        # Master triggers search
+        self.master_triggers_search_input = QLineEdit()
+        self.master_triggers_search_input.setPlaceholderText("Search master triggers (e.g., root)")
+        self.master_triggers_search_input.textChanged.connect(self.filter_master_triggers)
+        self.toon_triggers_layout.addWidget(self.master_triggers_search_input)
+
+        self.master_triggers_table = QTableWidget()
+        self.master_triggers_table.setColumnCount(2)
+        self.master_triggers_table.setHorizontalHeaderLabels(["Log Pattern", "Spoken Message"])
+        self.master_triggers_table.setColumnWidth(0, 280)
+        self.master_triggers_table.setColumnWidth(1, 280)
+        self.master_triggers_table.horizontalHeader().setStretchLastSection(True)
+        self.master_triggers_table.cellClicked.connect(self.add_toon_trigger)
+        self.toon_triggers_layout.addWidget(self.master_triggers_table)
+
+        # Toon triggers search
+        self.toon_triggers_search_input = QLineEdit()
+        self.toon_triggers_search_input.setPlaceholderText("Search toon triggers (e.g., root)")
+        self.toon_triggers_search_input.textChanged.connect(self.filter_toon_triggers)
+        self.toon_triggers_layout.addWidget(self.toon_triggers_search_input)
+
+        self.toon_triggers_table = QTableWidget()
+        self.toon_triggers_table.setColumnCount(2)
+        self.toon_triggers_table.setHorizontalHeaderLabels(["Log Pattern", "Spoken Message"])
+        self.toon_triggers_table.setColumnWidth(0, 280)
+        self.toon_triggers_table.setColumnWidth(1, 280)
+        self.toon_triggers_table.horizontalHeader().setStretchLastSection(True)
+        self.toon_triggers_table.cellClicked.connect(self.remove_toon_trigger)
+        self.toon_triggers_layout.addWidget(self.toon_triggers_table)
+
+        self.toon_triggers_layout_widget = QWidget()
+        self.toon_triggers_layout_widget.setLayout(self.toon_triggers_layout)
+        self.toon_triggers_layout_widget.hide()
+        self.layout.addWidget(self.toon_triggers_layout_widget)
+
+        self.current_toon_for_triggers = None
         self.setLayout(self.layout)
         self.load_triggers()
 
@@ -202,32 +261,37 @@ class VoiceNotificationsApp(QWidget):
         self.toon_list.hide()
         self.button_layout_widget.hide()
         self.trigger_layout_widget.hide()
+        self.toon_triggers_layout_widget.hide()
         self.add_toon_layout_widget.show()
 
     def show_master_triggers(self):
         self.toon_list.hide()
         self.button_layout_widget.hide()
         self.add_toon_layout_widget.hide()
+        self.toon_triggers_layout_widget.hide()
         self.trigger_layout_widget.show()
         self.load_triggers()
 
     def show_toon_list(self):
         self.trigger_layout_widget.hide()
         self.add_toon_layout_widget.hide()
+        self.toon_triggers_layout_widget.hide()
         self.toon_list.show()
         self.button_layout_widget.show()
 
-    def add_toon(self):
-        toon_name = self.toon_input.text().strip()
-        if toon_name and toon_name not in self.toons:
-            self.toons.append(toon_name)
-            self.settings.beginGroup("toons")
-            self.settings.setValue(str(len(self.toons)), toon_name)
-            self.settings.endGroup()
-            self.settings.sync()
-            self.update_toon_list()
-            self.toon_input.clear()
-            self.show_toon_list()
+    def show_toon_triggers_ui(self, item):
+        toon_name = item.text()
+        if toon_name == "No toons configured":
+            return
+        self.current_toon_for_triggers = toon_name
+        self.toon_triggers_title.setText(f"Triggers for {toon_name}")
+        self.toon_list.hide()
+        self.button_layout_widget.hide()
+        self.trigger_layout_widget.hide()
+        self.add_toon_layout_widget.hide()
+        self.toon_triggers_layout_widget.show()
+        self.load_master_triggers()
+        self.load_toon_triggers()
 
     def load_triggers(self):
         self.table.itemChanged.disconnect(self.update_trigger)
@@ -247,6 +311,54 @@ class VoiceNotificationsApp(QWidget):
 
     def filter_triggers(self):
         self.load_triggers()
+
+    def load_master_triggers(self):
+        self.master_triggers_table.setRowCount(0)
+        search_text = self.master_triggers_search_input.text().strip().lower()
+        for pattern, message in self.master_triggers.items():
+            if search_text in pattern.lower() or not search_text:
+                row = self.master_triggers_table.rowCount()
+                self.master_triggers_table.insertRow(row)
+                pattern_item = QTableWidgetItem(pattern)
+                pattern_item.setFlags(pattern_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.master_triggers_table.setItem(row, 0, pattern_item)
+                message_item = QTableWidgetItem(message)
+                message_item.setFlags(message_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.master_triggers_table.setItem(row, 1, message_item)
+
+    def filter_master_triggers(self):
+        self.load_master_triggers()
+
+    def load_toon_triggers(self):
+        self.toon_triggers_table.setRowCount(0)
+        search_text = self.toon_triggers_search_input.text().strip().lower()
+        if self.current_toon_for_triggers in self.toon_triggers:
+            for pattern in self.toon_triggers[self.current_toon_for_triggers]:
+                if search_text in pattern.lower() or not search_text:
+                    row = self.toon_triggers_table.rowCount()
+                    self.toon_triggers_table.insertRow(row)
+                    pattern_item = QTableWidgetItem(pattern)
+                    pattern_item.setFlags(pattern_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    self.toon_triggers_table.setItem(row, 0, pattern_item)
+                    message_item = QTableWidgetItem(self.master_triggers.get(pattern, ""))
+                    message_item.setFlags(message_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    self.toon_triggers_table.setItem(row, 1, message_item)
+
+    def filter_toon_triggers(self):
+        self.load_toon_triggers()
+
+    def add_toon(self):
+        toon_name = self.toon_input.text().strip()
+        if toon_name and toon_name not in self.toons:
+            self.toons.append(toon_name)
+            self.toon_triggers[toon_name] = []
+            self.settings.beginGroup("toons")
+            self.settings.setValue(str(len(self.toons)), toon_name)
+            self.settings.endGroup()
+            self.settings.sync()
+            self.update_toon_list()
+            self.toon_input.clear()
+            self.show_toon_list()
 
     def add_trigger(self):
         pattern = self.pattern_input.text().strip()
@@ -270,6 +382,13 @@ class VoiceNotificationsApp(QWidget):
                 self.settings.beginGroup("master_triggers")
                 self.settings.remove(self.encode_key(pattern))
                 self.settings.endGroup()
+                # Remove pattern from all toon triggers
+                for toon in self.toon_triggers:
+                    if pattern in self.toon_triggers[toon]:
+                        self.toon_triggers[toon].remove(pattern)
+                        self.settings.beginGroup(f"toon_triggers/{toon}")
+                        self.settings.remove(self.encode_key(pattern))
+                        self.settings.endGroup()
                 self.settings.sync()
                 self.load_triggers()
 
@@ -287,6 +406,14 @@ class VoiceNotificationsApp(QWidget):
                     self.settings.beginGroup("master_triggers")
                     self.settings.remove(self.encode_key(old_pattern))
                     self.settings.endGroup()
+                    for toon in self.toon_triggers:
+                        if old_pattern in self.toon_triggers[toon]:
+                            self.toon_triggers[toon].remove(old_pattern)
+                            self.toon_triggers[toon].append(new_pattern)
+                            self.settings.beginGroup(f"toon_triggers/{toon}")
+                            self.settings.remove(self.encode_key(old_pattern))
+                            self.settings.setValue(self.encode_key(new_pattern), "true")
+                            self.settings.endGroup()
                 self.master_triggers[new_pattern] = new_message
                 self.settings.beginGroup("master_triggers")
                 self.settings.setValue(self.encode_key(new_pattern), new_message)
@@ -294,21 +421,45 @@ class VoiceNotificationsApp(QWidget):
                 self.settings.sync()
                 self.load_triggers()
 
+    def add_toon_trigger(self, row, column):
+        if row >= 0:
+            pattern = self.master_triggers_table.item(row, 0).text()
+            if self.current_toon_for_triggers and pattern not in self.toon_triggers.get(self.current_toon_for_triggers, []):
+                self.toon_triggers.setdefault(self.current_toon_for_triggers, []).append(pattern)
+                self.settings.beginGroup(f"toon_triggers/{self.current_toon_for_triggers}")
+                self.settings.setValue(self.encode_key(pattern), "true")
+                self.settings.endGroup()
+                self.settings.sync()
+                self.load_toon_triggers()
+
+    def remove_toon_trigger(self, row, column):
+        if row >= 0:
+            pattern = self.toon_triggers_table.item(row, 0).text()
+            if self.current_toon_for_triggers and pattern in self.toon_triggers.get(self.current_toon_for_triggers, []):
+                self.toon_triggers[self.current_toon_for_triggers].remove(pattern)
+                self.settings.beginGroup(f"toon_triggers/{self.current_toon_for_triggers}")
+                self.settings.remove(self.encode_key(pattern))
+                self.settings.endGroup()
+                self.settings.sync()
+                self.load_toon_triggers()
+
     def toggle_notifications(self, state):
         self.enabled = state == Qt.CheckState.Checked.value
         self.settings.setValue("voice_enabled", self.enabled)
         self.settings.sync()
 
     def process_log_line(self, line):
-        if not self.enabled:
+        if not self.enabled or not self.current_toon or self.current_toon not in self.toon_triggers:
             return
-        for pattern, message in self.master_triggers.items():
+        for pattern in self.toon_triggers.get(self.current_toon, []):
             if pattern in line:
-                if self.tts_thread and self.tts_thread.isRunning():
-                    self.tts_thread.wait()
-                self.tts_thread = TTSThread(message)
-                self.tts_thread.start()
-                break
+                message = self.master_triggers.get(pattern, "")
+                if message:
+                    if self.tts_thread and self.tts_thread.isRunning():
+                        self.tts_thread.wait()
+                    self.tts_thread = TTSThread(message)
+                    self.tts_thread.start()
+                    break
 
     def update_log_info(self, log_file, log_path, log_position):
         if self.log_file and self.log_file != log_file:
@@ -316,6 +467,9 @@ class VoiceNotificationsApp(QWidget):
         self.log_file = log_file
         self.log_path = log_path
         self.log_position = log_position
+        # Update current toon from log file name
+        if log_path and os.path.basename(log_path).startswith("eqlog_"):
+            self.current_toon = os.path.basename(log_path).split("_")[1]
 
     def closeEvent(self, event):
         if self.tts_thread and self.tts_thread.isRunning():
