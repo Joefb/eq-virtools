@@ -71,6 +71,7 @@ class VoiceNotificationsApp(QWidget):
         self.log_path = None
         self.log_position = 0
         self.setup_ui()
+        self.update_active_toon_label()
 
     def encode_key(self, key):
         """Replace spaces with underscores for QSettings keys."""
@@ -80,11 +81,21 @@ class VoiceNotificationsApp(QWidget):
         """Replace underscores with spaces for trigger patterns."""
         return key.replace("_", " ")
 
+    def update_active_toon_label(self):
+        """Update the active toon label text."""
+        self.active_toon_label.setText(f"Active Toon: {self.current_toon}")
+
     def setup_ui(self):
         self.resize(600, 500)
         self.layout = QVBoxLayout()
         self.layout.setSpacing(4)
         self.layout.setContentsMargins(4, 4, 4, 4)
+
+        # Active toon label
+        self.active_toon_label = QLabel(f"Active Toon: {self.current_toon}")
+        self.active_toon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.active_toon_label.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.layout.addWidget(self.active_toon_label)
 
         # Enable checkbox
         self.enable_checkbox = QCheckBox("Enable Voice Notifications")
@@ -467,6 +478,7 @@ class VoiceNotificationsApp(QWidget):
         self.log_path = log_path
         self.log_position = log_position
         self.current_toon = toon_name
+        self.update_active_toon_label()
 
     def closeEvent(self, event):
         if self.tts_thread and self.tts_thread.isRunning():
