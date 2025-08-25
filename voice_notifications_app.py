@@ -34,7 +34,7 @@ class VoiceNotificationsApp(QWidget):
         self.log_dir = log_dir if os.path.exists(log_dir) else "/app/logs"
         config_dir = os.path.abspath("./config")
         os.makedirs(config_dir, exist_ok=True)
-        self.settings = QSettings(os.path.join(config_dir, "voice-notifications.ini"), QSettings.Format.IniFormat)
+        self.settings = QSettings(os.path.join(os.path.dirname(__file__), "config", "voice-notifications.ini"), QSettings.Format.IniFormat)
         self.settings.remove("General")  # Clear stale [General] section
         self.tts_thread = None
         self.enabled = self.settings.value("voice_enabled", False, type=bool)
