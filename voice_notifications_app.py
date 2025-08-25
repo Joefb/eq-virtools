@@ -1,5 +1,5 @@
 import re
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox, QApplication
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox, QApplication, QListWidget, QLabel
 from PyQt6.QtCore import QSettings, Qt, QThread, pyqtSignal
 from gtts import gTTS
 import pygame
@@ -31,11 +31,17 @@ class VoiceNotificationsApp(QWidget):
         super().__init__()
         self.setWindowTitle("Voice Notifications")
         self.log_dir = log_dir
-        ## self.settings = QSettings("EQ-Virtools", "VoiceNotifications")
         self.settings = QSettings("./config/voice-notifications.ini", QSettings.Format.IniFormat)
         self.tts_thread = None
         self.enabled = self.settings.value("voice_enabled", False, type=bool)
-        self.triggers = self.settings.value("voice_triggers", {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}, type=dict)
+        self.master_triggers = {}
+        self.settings.beginGroup("master_triggers")
+        for key in self.settings.allKeys():
+            self.master_triggers[key] = self.settings.value(key)
+        self.settings.endGroup()
+        if not self.master_triggers:
+            self.master_triggers = {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}
+        self.triggers = {}  # Will be toon-specific later
         self.log_file = None
         self.log_path = None
         self.log_position = 0
@@ -44,83 +50,143 @@ class VoiceNotificationsApp(QWidget):
 
     def setup_ui(self):
         self.resize(600, 500)
-        layout = QVBoxLayout()
-        layout.setSpacing(4)
-        layout.setContentsMargins(4, 4, 4, 4)
+        self.layout = QVBoxLayout()
+        self.layout.setSpacing(4)
+        self.layout.setContentsMargins(4, 4, 4, 4)
 
-        # Toggle switch
-        self.toggle = QCheckBox("Enable Voice Notifications")
-        self.toggle.setChecked(self.enabled)
-        self.toggle.stateChanged.connect(self.toggle_notifications)
-        layout.addWidget(self.toggle)
+        # Toon management screen
+        self.toon_list = QListWidget()
+        self.toon_list.addItem("No toons configured")  # Placeholder
+        self.layout.addWidget(self.toon_list)
 
-        # Trigger table
+        self.button_layout = QHBoxLayout()
+        add_toon_button = QPushButton("Add Toon")
+        add_toon_button.clicked.connect(self.add_toon_placeholder)
+        self.button_layout.addWidget(add_toon_button)
+        triggers_button = QPushButton("Triggers")
+        triggers_button.clicked.connect(self.show_master_triggers)
+        self.button_layout.addWidget(triggers_button)
+        self.button_layout_widget = QWidget()
+        self.button_layout_widget.setLayout(self.button_layout)
+        self.layout.addWidget(self.button_layout_widget)
+
+        # Trigger screen (hidden initially)
+        self.trigger_layout = QVBoxLayout()
+        self.trigger_header_layout = QHBoxLayout()
+        self.back_button = QPushButton("<")
+        self.back_button.setFixedWidth(30)
+        self.back_button.clicked.connect(self.show_toon_list)
+        self.trigger_header_layout.addWidget(self.back_button)
+        self.trigger_title = QLabel("Master Trigger List")
+        self.trigger_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.trigger_title.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.trigger_header_layout.addWidget(self.trigger_title)
+        self.trigger_header_layout.addStretch()
+        self.trigger_layout.addLayout(self.trigger_header_layout)
+
+        # Search bar for trigger screen
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search log patterns (e.g., root)")
+        self.search_input.textChanged.connect(self.filter_triggers)
+        self.trigger_layout.addWidget(self.search_input)
+
         self.table = QTableWidget()
         self.table.setColumnCount(2)
         self.table.setHorizontalHeaderLabels(["Log Pattern", "Spoken Message"])
-        self.table.setColumnWidth(0, 280)  # Log Pattern
-        self.table.setColumnWidth(1, 280)  # Spoken Message
+        self.table.setColumnWidth(0, 280)
+        self.table.setColumnWidth(1, 280)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.itemChanged.connect(self.update_trigger)
-        self.load_triggers()
-        layout.addWidget(self.table)
+        self.trigger_layout.addWidget(self.table)
 
-        # Add trigger inputs
-        input_layout = QHBoxLayout()
+        self.input_layout = QHBoxLayout()
         self.pattern_input = QLineEdit()
         self.pattern_input.setPlaceholderText("Enter log pattern (e.g., Your root has broken)")
-        input_layout.addWidget(self.pattern_input)
+        self.input_layout.addWidget(self.pattern_input)
         self.message_input = QLineEdit()
         self.message_input.setPlaceholderText("Enter spoken message (e.g., Root has broken!)")
-        input_layout.addWidget(self.message_input)
-        layout.addLayout(input_layout)
+        self.input_layout.addWidget(self.message_input)
+        self.input_layout_widget = QWidget()
+        self.input_layout_widget.setLayout(self.input_layout)
+        self.trigger_layout.addWidget(self.input_layout_widget)
 
-        # Add and delete buttons
-        button_layout = QHBoxLayout()
+        self.trigger_button_layout = QHBoxLayout()
         add_button = QPushButton("Add Trigger")
         add_button.clicked.connect(self.add_trigger)
-        button_layout.addWidget(add_button)
+        self.trigger_button_layout.addWidget(add_button)
         delete_button = QPushButton("Delete Selected")
         delete_button.clicked.connect(self.delete_trigger)
-        button_layout.addWidget(delete_button)
-        layout.addLayout(button_layout)
+        self.trigger_button_layout.addWidget(delete_button)
+        self.trigger_button_layout_widget = QWidget()
+        self.trigger_button_layout_widget.setLayout(self.trigger_button_layout)
+        self.trigger_layout.addWidget(self.trigger_button_layout_widget)
 
-        self.setLayout(layout)
+        self.trigger_layout_widget = QWidget()
+        self.trigger_layout_widget.setLayout(self.trigger_layout)
+        self.trigger_layout_widget.hide()
+        self.layout.addWidget(self.trigger_layout_widget)
+
+        self.setLayout(self.layout)
+
+    def add_toon_placeholder(self):
+        print("Add Toon clicked (placeholder)")
+
+    def show_master_triggers(self):
+        self.toon_list.hide()
+        self.button_layout_widget.hide()
+        self.trigger_layout_widget.show()
+        self.load_triggers()
+
+    def show_toon_list(self):
+        self.trigger_layout_widget.hide()
+        self.toon_list.show()
+        self.button_layout_widget.show()
 
     def load_triggers(self):
         self.table.itemChanged.disconnect(self.update_trigger)
         self.table.setRowCount(0)
-        for pattern, message in self.triggers.items():
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            pattern_item = QTableWidgetItem(pattern)
-            pattern_item.setFlags(pattern_item.flags() | Qt.ItemFlag.ItemIsEditable)
-            self.table.setItem(row, 0, pattern_item)
-            message_item = QTableWidgetItem(message)
-            message_item.setFlags(message_item.flags() | Qt.ItemFlag.ItemIsEditable)
-            self.table.setItem(row, 1, message_item)
+        search_text = self.search_input.text().strip().lower()
+        for pattern, message in self.master_triggers.items():
+            if search_text in pattern.lower() or not search_text:
+                row = self.table.rowCount()
+                self.table.insertRow(row)
+                pattern_item = QTableWidgetItem(pattern)
+                pattern_item.setFlags(pattern_item.flags() | Qt.ItemFlag.ItemIsEditable)
+                self.table.setItem(row, 0, pattern_item)
+                message_item = QTableWidgetItem(message)
+                message_item.setFlags(message_item.flags() | Qt.ItemFlag.ItemIsEditable)
+                self.table.setItem(row, 1, message_item)
         self.table.itemChanged.connect(self.update_trigger)
+
+    def filter_triggers(self):
+        self.load_triggers()
 
     def add_trigger(self):
         pattern = self.pattern_input.text().strip()
         message = self.message_input.text().strip()
         if pattern and message:
-            self.triggers[pattern] = message
-            self.settings.setValue("voice_triggers", self.triggers)
+            self.master_triggers[pattern] = message
+            self.settings.beginGroup("master_triggers")
+            self.settings.setValue(pattern, message)
+            self.settings.endGroup()
+            self.settings.sync()
+            print(f"Saved trigger: {pattern} = {message}")
             self.load_triggers()
             self.pattern_input.clear()
             self.message_input.clear()
-            self.update_main_app_settings()
 
     def delete_trigger(self):
         selected = self.table.selectedItems()
         if selected:
             pattern = selected[0].text()
-            if pattern in self.triggers:
-                del self.triggers[pattern]
-                self.settings.setValue("voice_triggers", self.triggers)
+            if pattern in self.master_triggers:
+                del self.master_triggers[pattern]
+                self.settings.beginGroup("master_triggers")
+                self.settings.remove(pattern)
+                self.settings.endGroup()
+                self.settings.sync()
+                print(f"Deleted trigger: {pattern}")
                 self.load_triggers()
-                self.update_main_app_settings()
 
     def update_trigger(self, item):
         row = item.row()
@@ -130,20 +196,24 @@ class VoiceNotificationsApp(QWidget):
             new_pattern = pattern_item.text().strip()
             new_message = message_item.text().strip()
             if new_pattern and new_message:
-                old_pattern = None
-                for p, m in list(self.triggers.items()):
-                    if m == self.table.item(row, 1).text() and p != new_pattern:
-                        old_pattern = p
-                        break
-                if old_pattern and old_pattern in self.triggers:
-                    del self.triggers[old_pattern]
-                self.triggers[new_pattern] = new_message
-                self.settings.setValue("voice_triggers", self.triggers)
-                self.update_main_app_settings()
+                old_pattern = next((p for p, m in self.master_triggers.items() if p != new_pattern and m == self.table.item(row, 1).text()), None)
+                if old_pattern and old_pattern in self.master_triggers:
+                    del self.master_triggers[old_pattern]
+                    self.settings.beginGroup("master_triggers")
+                    self.settings.remove(old_pattern)
+                    self.settings.endGroup()
+                self.master_triggers[new_pattern] = new_message
+                self.settings.beginGroup("master_triggers")
+                self.settings.setValue(new_pattern, new_message)
+                self.settings.endGroup()
+                self.settings.sync()
+                print(f"Updated trigger: {new_pattern} = {new_message}")
+                self.load_triggers()
 
     def toggle_notifications(self, state):
         self.enabled = state == Qt.CheckState.Checked.value
         self.settings.setValue("voice_enabled", self.enabled)
+        self.settings.sync()
         self.update_main_app_settings()
 
     def update_main_app_settings(self):
