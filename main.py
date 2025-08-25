@@ -280,9 +280,8 @@ class MainApp:
                         print(f"Detected zone: {self.current_zone}, timer: {self.zone_timer} seconds")
                         if self.timer_window and hasattr(self.timer_window, 'update_zone'):
                             self.timer_window.update_zone(self.current_zone, self.zone_timer)
-                    if self.voice_window and self.voice_window.isVisible():
-                        if hasattr(self.voice_window, 'process_log_line'):
-                            self.voice_window.process_log_line(clean_line)
+                    if self.voice_window and self.voice_window.enabled and hasattr(self.voice_window, 'process_log_line'):
+                        self.voice_window.process_log_line(clean_line)
         except Exception as e:
             self.log_file = None
             self.log_path = None
