@@ -208,9 +208,8 @@ class MainApp:
         self.app = QApplication([])
         self.app.setQuitOnLastWindowClosed(False)
         self.app.setProperty("MainApp", self)
-        self.settings = QSettings("EQ-Virtools", "MainApp")
-##        self.log_dir = self.settings.value("log_dir", "/home/callojoee/Games/everquest/Logs/")
-        self.log_dir = os.getenv("LOG_DIR", "/app/logs")
+        self.settings = QSettings("./config/main-app.ini", QSettings.Format.IniFormat)
+        self.log_dir = self.settings.value("log_dir", os.getenv("LOG_DIR", "/app/logs"))
         self.log_path = None
         self.log_file = None
         self.log_position = 0
