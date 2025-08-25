@@ -71,7 +71,7 @@ class VoiceNotificationsApp(QWidget):
         self.back_button.setFixedWidth(30)
         self.back_button.clicked.connect(self.show_toon_list)
         self.trigger_header_layout.addWidget(self.back_button)
-        self.trigger_title = QLabel("Triggers")
+        self.trigger_title = QLabel("Master Trigger List")
         self.trigger_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.trigger_title.setStyleSheet("font-weight: bold; font-size: 16px;")
         self.trigger_header_layout.addWidget(self.trigger_title)
