@@ -45,7 +45,15 @@ class VoiceNotificationsApp(QWidget):
             self.master_triggers[decoded_key] = self.settings.value(key)
         self.settings.endGroup()
         if not self.master_triggers:
-            self.master_triggers = {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}
+            self.master_triggers = {
+                "Your root has broken": "Root has broken!",
+                "resists your spell": "Spell resisted!"
+            }
+            self.settings.beginGroup("master_triggers")
+            for pattern, message in self.master_triggers.items():
+                self.settings.setValue(self.encode_key(pattern), message)
+            self.settings.endGroup()
+            self.settings.sync()
         self.log_file = None
         self.log_path = None
         self.log_position = 0
