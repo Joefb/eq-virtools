@@ -31,7 +31,8 @@ class VoiceNotificationsApp(QWidget):
         super().__init__()
         self.setWindowTitle("Voice Notifications")
         self.log_dir = log_dir
-        self.settings = QSettings("EQ-Virtools", "VoiceNotifications")
+        ## self.settings = QSettings("EQ-Virtools", "VoiceNotifications")
+        self.settings = QSettings("./config/voice-notifications.ini", QSettings.Format.IniFormat)
         self.tts_thread = None
         self.enabled = self.settings.value("voice_enabled", False, type=bool)
         self.triggers = self.settings.value("voice_triggers", {"Your root has broken": "Root has broken!", " resists your spell": "Spell resisted!"}, type=dict)
