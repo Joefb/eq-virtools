@@ -248,7 +248,7 @@ class VoiceNotificationsApp(QWidget):
         self.toon_triggers_table.setColumnWidth(0, 280)
         self.toon_triggers_table.setColumnWidth(1, 280)
         self.toon_triggers_table.horizontalHeader().setStretchLastSection(True)
-        self.toon_triggers_table.cellClicked.connect(self.remove_toon_trigger)
+        self.toon_triggers_table.cellDoubleClicked.connect(self.remove_toon_trigger)
         self.toon_triggers_layout.addWidget(self.toon_triggers_table)
 
         self.toon_triggers_layout_widget = QWidget()
