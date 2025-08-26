@@ -233,7 +233,7 @@ class VoiceNotificationsApp(QWidget):
         self.master_triggers_table.setColumnWidth(0, 280)
         self.master_triggers_table.setColumnWidth(1, 280)
         self.master_triggers_table.horizontalHeader().setStretchLastSection(True)
-        self.master_triggers_table.cellClicked.connect(self.add_toon_trigger)
+        self.master_triggers_table.cellDoubleClicked.connect(self.add_toon_trigger)
         self.toon_triggers_layout.addWidget(self.master_triggers_table)
 
         # Toon triggers search
