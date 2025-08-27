@@ -91,10 +91,16 @@ class VoiceNotificationsApp(QWidget):
         self.layout.setSpacing(4)
         self.layout.setContentsMargins(4, 4, 4, 4)
 
+        # Voice Management Title 
+        self.vn_management_label = QLabel("Voice Notifications Management")
+        self.vn_management_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.vn_management_label.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.layout.addWidget(self.vn_management_label)
+
         # Active toon label
         self.active_toon_label = QLabel(f"Active Toon: {self.current_toon}")
         self.active_toon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.active_toon_label.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.active_toon_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         self.layout.addWidget(self.active_toon_label)
 
         # Enable checkbox
