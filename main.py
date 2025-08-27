@@ -1,9 +1,9 @@
+import importlib
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QFileDialog
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtCore import QSettings, QTimer, QThread, pyqtSignal
 from timer_app import MobTimerApp
 import voice_notifications_app
-import importlib
 import os
 import re
 from gtts import gTTS
@@ -181,26 +181,6 @@ WHO_TO_ZONE = {
     "Velketor": "Velketor's Labyrinth"
 }
 
-class TTSThread(QThread):
-    def __init__(self, text):
-        super().__init__()
-        self.text = text
-        self.temp_file = "temp.mp3"
-
-    def run(self):
-        try:
-            tts = gTTS(text=self.text, lang='en', tld='com')
-            tts.save(self.temp_file)
-            pygame.mixer.init()
-            pygame.mixer.music.load(self.temp_file)
-            pygame.mixer.music.play()
-            while pygame.mixer.music.get_busy():
-                time.sleep(0.1)
-            pygame.mixer.music.unload()
-            os.remove(self.temp_file)
-        except Exception as e:
-            print(f"TTS error: {e}")
-
 class MainApp:
     def __init__(self):
         if QApplication.instance():
@@ -208,11 +188,10 @@ class MainApp:
         self.app = QApplication([])
         self.app.setQuitOnLastWindowClosed(False)
         self.app.setProperty("MainApp", self)
-        # Ensure config directory exists
         config_dir = os.path.abspath("./config")
         os.makedirs(config_dir, exist_ok=True)
-        self.config_file = os.path.join(config_dir, "main-app.ini")
-        self.settings = QSettings(self.config_file, QSettings.Format.IniFormat)
+        config_file = os.path.join(config_dir, "main-app.ini")
+        self.settings = QSettings(config_file, QSettings.Format.IniFormat)
         self.log_dir = self.settings.value("General/log_dir", os.getenv("LOG_DIR", "/app/logs"), type=str)
         self.log_path = None
         self.log_file = None
@@ -222,7 +201,6 @@ class MainApp:
         self.zone_timer = 400  # Default 6:40
         self.timer_window = None
         self.voice_window = None
-        self.tts_thread = None
         self.load_active_log_file()
         icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "tray-icon.png"))
         icon = QIcon(icon_path)
@@ -240,7 +218,6 @@ class MainApp:
     def load_active_log_file(self):
         try:
             if not os.path.exists(self.log_dir):
-                print(f"Log directory {self.log_dir} does not exist")
                 return False
             log_files = [f for f in os.listdir(self.log_dir) if f.startswith("eqlog_")]
             if not log_files:
@@ -249,20 +226,16 @@ class MainApp:
             new_log_file = log_files[0]
             new_toon = new_log_file.split("_")[1]
             if new_log_file != self.log_path or (self.log_file and self.log_file.closed):
-                print(f"Switching to new toon log: {new_log_file} (toon: {new_toon})")
                 self.log_path = new_log_file
                 self.toon_name = new_toon
                 if self.log_file and not self.log_file.closed:
-                    print(f"Closing previous log file: {self.log_path}")
                     self.log_file.close()
                     self.log_file = None
                 try:
                     self.log_file = open(os.path.join(self.log_dir, new_log_file), "r")
                     self.log_file.seek(0, os.SEEK_END)
                     self.log_position = self.log_file.tell()
-                    print(f"Opened new log file: {self.log_path}, position: {self.log_position}")
                 except Exception as e:
-                    print(f"Error opening log file {new_log_file}: {e}")
                     self.log_file = None
                     self.log_path = None
                     self.log_position = 0
@@ -270,11 +243,10 @@ class MainApp:
                 if self.timer_window and hasattr(self.timer_window, 'update_toon'):
                     self.timer_window.update_toon(self.toon_name, self.log_file, self.log_path, self.log_position, self.current_zone, self.zone_timer)
                 if self.voice_window and hasattr(self.voice_window, 'update_log_info'):
-                    self.voice_window.update_log_info(self.log_file, self.log_path, self.log_position)
+                    self.voice_window.update_log_info(self.log_file, self.log_path, self.log_position, self.toon_name)
                 return True
             return True
         except Exception as e:
-            print(f"Error loading log file: {e}")
             self.log_file = None
             self.log_path = None
             self.log_position = 0
@@ -308,13 +280,9 @@ class MainApp:
                         print(f"Detected zone: {self.current_zone}, timer: {self.zone_timer} seconds")
                         if self.timer_window and hasattr(self.timer_window, 'update_zone'):
                             self.timer_window.update_zone(self.current_zone, self.zone_timer)
-                    if self.voice_window and self.voice_window.isVisible():
-                        if hasattr(self.voice_window, 'process_log_line'):
-                            self.voice_window.process_log_line(clean_line)
-                        else:
-                            print(f"Error: VoiceNotificationsApp lacks process_log_line method")
+                    if self.voice_window and self.voice_window.enabled and hasattr(self.voice_window, 'process_log_line'):
+                        self.voice_window.process_log_line(clean_line)
         except Exception as e:
-            print(f"Error updating log position: {e}")
             self.log_file = None
             self.log_path = None
             self.log_position = 0
@@ -327,7 +295,7 @@ class MainApp:
         voice_action = QAction("Voice Notifications", self.menu)
         voice_action.triggered.connect(self.launch_voice_notifications)
         self.menu.addAction(voice_action)
-        placeholder_action = QAction("Other Tools (TBD", self.menu)
+        placeholder_action = QAction("Other Tools (TBD)", self.menu)
         placeholder_action.setEnabled(False)
         self.menu.addAction(placeholder_action)
         settings_action = QAction("Set Log Directory", self.menu)
@@ -344,8 +312,8 @@ class MainApp:
 
     def launch_voice_notifications(self):
         if not self.voice_window:
-            self.voice_window = voice_notifications_app.VoiceNotificationsApp(self.log_dir)
-            self.voice_window.update_log_info(self.log_file, self.log_path, self.log_position)
+            self.voice_window = VoiceNotificationsApp(self.log_dir, self.toon_name)
+            self.voice_window.update_log_info(self.log_file, self.log_path, self.log_position, self.toon_name)
         self.voice_window.show()
 
     def select_log_directory(self):
