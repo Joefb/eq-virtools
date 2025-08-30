@@ -123,7 +123,6 @@ class VoiceNotificationsApp(QWidget):
         self.update_toon_list()
         self.layout.addWidget(self.toon_list)
 
-
         self.toon_input = QLineEdit()
         self.toon_input.setPlaceholderText("Enter toon name (e.g., Bob)")
         self.layout.addWidget(self.toon_input)
@@ -132,6 +131,9 @@ class VoiceNotificationsApp(QWidget):
         add_toon_submit_button = QPushButton("Add New Toon")
         add_toon_submit_button.clicked.connect(self.add_toon)
         self.add_toon_button_layout.addWidget(add_toon_submit_button)
+        delete_toon_submit_button = QPushButton("Delete Toon")
+        # delete_toon_submit_button.clicked.connect(self.delete_toon)
+        self.add_toon_button_layout.addWidget(delete_toon_submit_button)
         self.add_toon_button_layout_widget = QWidget()
         self.add_toon_button_layout_widget.setLayout(self.add_toon_button_layout)
         self.layout.addWidget(self.add_toon_button_layout_widget)
@@ -164,12 +166,16 @@ class VoiceNotificationsApp(QWidget):
         self.back_button.setFixedWidth(30)
         self.back_button.clicked.connect(self.show_toon_list)
         self.trigger_header_layout.addWidget(self.back_button)
+        #self.trigger_header_layout.addWidget(self.trigger_title)
+        self.trigger_header_layout.addStretch()
+        self.trigger_layout.addLayout(self.trigger_header_layout)
+
+        self.trigger_title_layout = QHBoxLayout()
         self.trigger_title = QLabel("Master Trigger List")
         self.trigger_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.trigger_title.setStyleSheet("font-weight: bold; font-size: 16px;")
-        self.trigger_header_layout.addWidget(self.trigger_title)
-        self.trigger_header_layout.addStretch()
-        self.trigger_layout.addLayout(self.trigger_header_layout)
+        self.trigger_title_layout.addWidget(self.trigger_title)
+        self.trigger_layout.addLayout(self.trigger_title_layout)
 
         # Search bar for trigger screen
         self.search_input = QLineEdit()
@@ -322,6 +328,7 @@ class VoiceNotificationsApp(QWidget):
     def show_master_triggers(self):
         self.toon_list.hide()
         self.button_layout_widget.hide()
+        self.toon_input.hide() 
         #self.add_toon_layout_widget.hide()
         self.toon_triggers_layout_widget.hide()
         self.toon_list_title.hide() 
@@ -333,6 +340,7 @@ class VoiceNotificationsApp(QWidget):
         self.trigger_layout_widget.hide()
         #self.add_toon_layout_widget.hide()
         self.toon_triggers_layout_widget.hide()
+        self.toon_input.show() 
         self.toon_list.show()
         self.button_layout_widget.show()
         self.toon_list_title.show()
@@ -345,6 +353,9 @@ class VoiceNotificationsApp(QWidget):
         self.current_toon_for_triggers = toon_name
         self.toon_triggers_title.setText(f"Triggers for {toon_name}")
         self.toon_list.hide()
+        self.toon_list_title.hide() 
+        self.enable_checkbox.hide() 
+        self.toon_input.hide()
         self.button_layout_widget.hide()
         self.trigger_layout_widget.hide()
         #self.add_toon_layout_widget.hide()
