@@ -134,7 +134,7 @@ class VoiceNotificationsApp(QWidget):
             "Enter toon name to add (e.g., Bob)")
         self.layout.addWidget(self.toon_input)
 
-        # Add/Delete buttons
+        # Add/Delete buttons test
         self.add_toon_button_layout = QHBoxLayout()
         add_toon_submit_button = QPushButton("Add New Toon")
         add_toon_submit_button.clicked.connect(self.add_toon)
@@ -220,7 +220,7 @@ class VoiceNotificationsApp(QWidget):
         self.trigger_layout_widget.hide()
         self.layout.addWidget(self.trigger_layout_widget)
 
-        # TOON TRIGGERS UI ###############################
+        # TOON TRIGGERS UI ###################################
         # Add Toon Triggers screen (hidden initially)
         self.toon_triggers_layout = QVBoxLayout()
         self.toon_triggers_header_layout = QHBoxLayout()

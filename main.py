@@ -181,6 +181,7 @@ WHO_TO_ZONE = {
     "Velketor": "Velketor's Labyrinth"
 }
 
+
 class MainApp:
     def __init__(self):
         if QApplication.instance():
@@ -192,7 +193,8 @@ class MainApp:
         os.makedirs(config_dir, exist_ok=True)
         config_file = os.path.join(config_dir, "main-app.ini")
         self.settings = QSettings(config_file, QSettings.Format.IniFormat)
-        self.log_dir = self.settings.value("General/log_dir", os.getenv("LOG_DIR", "/app/logs"), type=str)
+        self.log_dir = self.settings.value(
+            "General/log_dir", os.getenv("LOG_DIR", "/app/logs"), type=str)
         self.log_path = None
         self.log_file = None
         self.log_position = 0
@@ -202,7 +204,8 @@ class MainApp:
         self.timer_window = None
         self.voice_window = None
         self.load_active_log_file()
-        icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "tray-icon.png"))
+        icon_path = os.path.abspath(os.path.join(
+            os.path.dirname(__file__), "tray-icon.png"))
         icon = QIcon(icon_path)
         self.tray = QSystemTrayIcon(icon)
         if icon.isNull():
@@ -219,10 +222,12 @@ class MainApp:
         try:
             if not os.path.exists(self.log_dir):
                 return False
-            log_files = [f for f in os.listdir(self.log_dir) if f.startswith("eqlog_")]
+            log_files = [f for f in os.listdir(
+                self.log_dir) if f.startswith("eqlog_")]
             if not log_files:
                 return False
-            log_files = sorted(log_files, key=lambda f: os.stat(os.path.join(self.log_dir, f)).st_mtime, reverse=True)
+            log_files = sorted(log_files, key=lambda f: os.stat(
+                os.path.join(self.log_dir, f)).st_mtime, reverse=True)
             new_log_file = log_files[0]
             new_toon = new_log_file.split("_")[1]
             if new_log_file != self.log_path or (self.log_file and self.log_file.closed):
@@ -232,7 +237,8 @@ class MainApp:
                     self.log_file.close()
                     self.log_file = None
                 try:
-                    self.log_file = open(os.path.join(self.log_dir, new_log_file), "r")
+                    self.log_file = open(os.path.join(
+                        self.log_dir, new_log_file), "r")
                     self.log_file.seek(0, os.SEEK_END)
                     self.log_position = self.log_file.tell()
                 except Exception as e:
@@ -241,9 +247,11 @@ class MainApp:
                     self.log_position = 0
                     return False
                 if self.timer_window and hasattr(self.timer_window, 'update_toon'):
-                    self.timer_window.update_toon(self.toon_name, self.log_file, self.log_path, self.log_position, self.current_zone, self.zone_timer)
+                    self.timer_window.update_toon(
+                        self.toon_name, self.log_file, self.log_path, self.log_position, self.current_zone, self.zone_timer)
                 if self.voice_window and hasattr(self.voice_window, 'update_log_info'):
-                    self.voice_window.update_log_info(self.log_file, self.log_path, self.log_position, self.toon_name)
+                    self.voice_window.update_log_info(
+                        self.log_file, self.log_path, self.log_position, self.toon_name)
                 return True
             return True
         except Exception as e:
@@ -264,22 +272,29 @@ class MainApp:
                 clean_line = re.sub(r'^\[.*?\]\s', '', line.strip())
                 if clean_line:
                     # Zone detection
-                    zone_entry = re.match(r"You have entered (.*?)\.", clean_line)
-                    who_single = re.match(r"There is 1 player in (.*?)\.", clean_line)
-                    who_multi = re.match(r"There are \d+ players in (.*?)\.", clean_line)
+                    zone_entry = re.match(
+                        r"You have entered (.*?)\.", clean_line)
+                    who_single = re.match(
+                        r"There is 1 player in (.*?)\.", clean_line)
+                    who_multi = re.match(
+                        r"There are \d+ players in (.*?)\.", clean_line)
                     zone_name = None
                     if zone_entry:
                         zone_name = zone_entry.group(1)
                     elif who_single:
-                        zone_name = WHO_TO_ZONE.get(who_single.group(1), who_single.group(1))
+                        zone_name = WHO_TO_ZONE.get(
+                            who_single.group(1), who_single.group(1))
                     elif who_multi:
-                        zone_name = WHO_TO_ZONE.get(who_multi.group(1), who_multi.group(1))
+                        zone_name = WHO_TO_ZONE.get(
+                            who_multi.group(1), who_multi.group(1))
                     if zone_name and zone_name != self.current_zone:
                         self.current_zone = zone_name
                         self.zone_timer = ZONE_TIMERS.get(zone_name, 400)
-                        print(f"Detected zone: {self.current_zone}, timer: {self.zone_timer} seconds")
+                        print(f"Detected zone: {self.current_zone}, timer: {
+                              self.zone_timer} seconds")
                         if self.timer_window and hasattr(self.timer_window, 'update_zone'):
-                            self.timer_window.update_zone(self.current_zone, self.zone_timer)
+                            self.timer_window.update_zone(
+                                self.current_zone, self.zone_timer)
                     if self.voice_window and self.voice_window.enabled and hasattr(self.voice_window, 'process_log_line'):
                         self.voice_window.process_log_line(clean_line)
         except Exception as e:
@@ -307,17 +322,21 @@ class MainApp:
 
     def launch_timer_tool(self):
         if not self.timer_window:
-            self.timer_window = MobTimerApp(self.log_dir, self.toon_name, self.log_file, self.log_path, self.log_position, self.current_zone, self.zone_timer)
+            self.timer_window = MobTimerApp(self.log_dir, self.toon_name, self.log_file,
+                                            self.log_path, self.log_position, self.current_zone, self.zone_timer)
         self.timer_window.show()
 
     def launch_voice_notifications(self):
         if not self.voice_window:
-            self.voice_window = VoiceNotificationsApp(self.log_dir, self.toon_name)
-            self.voice_window.update_log_info(self.log_file, self.log_path, self.log_position, self.toon_name)
+            self.voice_window = VoiceNotificationsApp(
+                self.log_dir, self.toon_name)
+            self.voice_window.update_log_info(
+                self.log_file, self.log_path, self.log_position, self.toon_name)
         self.voice_window.show()
 
     def select_log_directory(self):
-        directory = QFileDialog.getExistingDirectory(None, "Select Log Directory", self.log_dir)
+        directory = QFileDialog.getExistingDirectory(
+            None, "Select Log Directory", self.log_dir)
         if directory:
             self.log_dir = directory
             self.settings.beginGroup("General")
@@ -340,6 +359,7 @@ class MainApp:
 
     def run(self):
         self.app.exec()
+
 
 if __name__ == "__main__":
     app = MainApp()
