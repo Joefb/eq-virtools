@@ -86,7 +86,7 @@ class VoiceNotificationsApp(QWidget):
         self.active_toon_label.setText(f"Active Toon: {self.current_toon}")
 
     def setup_ui(self):
-        self.resize(600, 500)
+        self.resize(600, 600)
         self.layout = QVBoxLayout()
         self.layout.setSpacing(4)
         self.layout.setContentsMargins(4, 4, 4, 4)
@@ -114,7 +114,7 @@ class VoiceNotificationsApp(QWidget):
         ## MAIN SCREEN ################
         # Toon profile title
         self.toon_list_title = QLabel("Toon Voice Notification Profiles")
-        self.toon_list_title.setStyleSheet("font-weight: bold; font-size: 12px;")
+        self.toon_list_title.setStyleSheet("font-weight: bold; font-size: 16px;")
         self.layout.addWidget(self.toon_list_title)
         
         # Toon profile list
@@ -172,7 +172,7 @@ class VoiceNotificationsApp(QWidget):
 
         self.trigger_title_layout = QHBoxLayout()
         self.trigger_title = QLabel("Master Trigger List")
-        self.trigger_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        #self.trigger_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.trigger_title.setStyleSheet("font-weight: bold; font-size: 16px;")
         self.trigger_title_layout.addWidget(self.trigger_title)
         self.trigger_layout.addLayout(self.trigger_title_layout)
@@ -261,12 +261,16 @@ class VoiceNotificationsApp(QWidget):
         self.toon_triggers_back_button.setFixedWidth(30)
         self.toon_triggers_back_button.clicked.connect(self.show_toon_list)
         self.toon_triggers_header_layout.addWidget(self.toon_triggers_back_button)
-        self.toon_triggers_title = QLabel("Triggers for Toon")
-        self.toon_triggers_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.toon_triggers_title.setStyleSheet("font-weight: bold; font-size: 16px;")
-        self.toon_triggers_header_layout.addWidget(self.toon_triggers_title)
+        #self.toon_triggers_header_layout.addWidget(self.toon_triggers_title)
         self.toon_triggers_header_layout.addStretch()
         self.toon_triggers_layout.addLayout(self.toon_triggers_header_layout)
+
+        self.toon_triggers_title_layout = QHBoxLayout()
+        self.toon_triggers_title = QLabel("Triggers for Toon")
+        #self.toon_triggers_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.toon_triggers_title.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.toon_triggers_title_layout.addWidget(self.toon_triggers_title)
+        self.toon_triggers_layout.addLayout(self.toon_triggers_title_layout)
 
         # Master triggers search
         self.master_triggers_search_input = QLineEdit()
