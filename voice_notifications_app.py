@@ -109,7 +109,6 @@ class VoiceNotificationsApp(QWidget):
         self.enable_checkbox.setChecked(self.enabled)
         self.enable_checkbox.stateChanged.connect(self.toggle_notifications)
         self.layout.addWidget(self.enable_checkbox)
-        ################################
 
         ## MAIN SCREEN ################
         # Toon profile title
@@ -123,10 +122,12 @@ class VoiceNotificationsApp(QWidget):
         self.update_toon_list()
         self.layout.addWidget(self.toon_list)
 
+        # Add toon input box
         self.toon_input = QLineEdit()
-        self.toon_input.setPlaceholderText("Enter toon name (e.g., Bob)")
+        self.toon_input.setPlaceholderText("Enter toon name to add (e.g., Bob)")
         self.layout.addWidget(self.toon_input)
 
+        # Add/Delete buttons 
         self.add_toon_button_layout = QHBoxLayout()
         add_toon_submit_button = QPushButton("Add New Toon")
         add_toon_submit_button.clicked.connect(self.add_toon)
@@ -138,27 +139,15 @@ class VoiceNotificationsApp(QWidget):
         self.add_toon_button_layout_widget.setLayout(self.add_toon_button_layout)
         self.layout.addWidget(self.add_toon_button_layout_widget)
 
-        #add_toon_button.clicked.connect(self.show_add_toon_ui)
-        ###############################
-        #self.button_layout = QHBoxLayout()
-        #add_toon_button = QPushButton("Add New Toon")
-        #add_toon_button.clicked.connect(self.show_add_toon_ui)
-        #self.button_layout.addWidget(add_toon_button)
-
-        #delete_toon_button = QPushButton("Delete Toon")
-        #add_toon_button.clicked.connect(self.show_add_toon_ui)
-        #self.button_layout.addWidget(delete_toon_button)
-        ##############################################
-
+        # Master trigger button
         triggers_button = QPushButton("Master Trigger List")
         triggers_button.clicked.connect(self.show_master_triggers)
         self.add_toon_button_layout.addWidget(triggers_button)
         self.button_layout_widget = QWidget()
         self.button_layout_widget.setLayout(self.add_toon_button_layout)
         self.layout.addWidget(self.button_layout_widget)
-        ####################################################
 
-        ## MASTER TRIGGERS #################################
+        ## MASTER TRIGGERS UI #################################
         # Master Trigger screen (hidden initially)
         self.trigger_layout = QVBoxLayout()
         self.trigger_header_layout = QHBoxLayout()
@@ -166,13 +155,12 @@ class VoiceNotificationsApp(QWidget):
         self.back_button.setFixedWidth(30)
         self.back_button.clicked.connect(self.show_toon_list)
         self.trigger_header_layout.addWidget(self.back_button)
-        #self.trigger_header_layout.addWidget(self.trigger_title)
         self.trigger_header_layout.addStretch()
         self.trigger_layout.addLayout(self.trigger_header_layout)
 
+        # Title
         self.trigger_title_layout = QHBoxLayout()
         self.trigger_title = QLabel("Master Trigger List")
-        #self.trigger_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.trigger_title.setStyleSheet("font-weight: bold; font-size: 16px;")
         self.trigger_title_layout.addWidget(self.trigger_title)
         self.trigger_layout.addLayout(self.trigger_title_layout)
@@ -222,38 +210,7 @@ class VoiceNotificationsApp(QWidget):
         self.trigger_layout_widget.hide()
         self.layout.addWidget(self.trigger_layout_widget)
 
-        #### TOON MANAGEMENT SCREEN ################################
-        # Toon Management screen (hidden initially)
-        self.add_toon_layout = QVBoxLayout()
-        self.add_toon_header_layout = QHBoxLayout()
-        self.add_toon_back_button = QPushButton("<")
-        self.add_toon_back_button.setFixedWidth(30)
-        self.add_toon_back_button.clicked.connect(self.show_toon_list)
-        self.add_toon_header_layout.addWidget(self.add_toon_back_button)
-        self.add_toon_title = QLabel("Toon Managment")
-        self.add_toon_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.add_toon_title.setStyleSheet("font-weight: bold; font-size: 16px;")
-        self.add_toon_header_layout.addWidget(self.add_toon_title)
-        self.add_toon_header_layout.addStretch()
-        self.add_toon_layout.addLayout(self.add_toon_header_layout)
-
-        #self.toon_input = QLineEdit()
-        #self.toon_input.setPlaceholderText("Enter toon name (e.g., Bob)")
-        #self.add_toon_layout.addWidget(self.toon_input)
-
-        #self.add_toon_button_layout = QHBoxLayout()
-        #add_toon_submit_button = QPushButton("Add New Toon")
-        #add_toon_submit_button.clicked.connect(self.add_toon)
-        #self.add_toon_button_layout.addWidget(add_toon_submit_button)
-        #self.add_toon_button_layout_widget = QWidget()
-        #self.add_toon_button_layout_widget.setLayout(self.add_toon_button_layout)
-        #self.add_toon_layout.addWidget(self.add_toon_button_layout_widget)
-
-        #self.add_toon_layout_widget = QWidget()
-        #self.add_toon_layout_widget.setLayout(self.add_toon_layout)
-        #self.add_toon_layout_widget.hide()
-        #self.layout.addWidget(self.add_toon_layout_widget)
-
+        # TOON TRIGGERS UI ###################################
         # Add Toon Triggers screen (hidden initially)
         self.toon_triggers_layout = QVBoxLayout()
         self.toon_triggers_header_layout = QHBoxLayout()
@@ -261,18 +218,17 @@ class VoiceNotificationsApp(QWidget):
         self.toon_triggers_back_button.setFixedWidth(30)
         self.toon_triggers_back_button.clicked.connect(self.show_toon_list)
         self.toon_triggers_header_layout.addWidget(self.toon_triggers_back_button)
-        #self.toon_triggers_header_layout.addWidget(self.toon_triggers_title)
         self.toon_triggers_header_layout.addStretch()
         self.toon_triggers_layout.addLayout(self.toon_triggers_header_layout)
 
+        # Title
         self.toon_triggers_title_layout = QHBoxLayout()
         self.toon_triggers_title = QLabel("Triggers for Toon")
-        #self.toon_triggers_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.toon_triggers_title.setStyleSheet("font-weight: bold; font-size: 16px;")
         self.toon_triggers_title_layout.addWidget(self.toon_triggers_title)
         self.toon_triggers_layout.addLayout(self.toon_triggers_title_layout)
 
-        # Master triggers search
+        # Master triggers search bar
         self.master_triggers_search_input = QLineEdit()
         self.master_triggers_search_input.setPlaceholderText("Search master triggers (e.g., root)")
         self.master_triggers_search_input.textChanged.connect(self.filter_master_triggers)
@@ -319,21 +275,10 @@ class VoiceNotificationsApp(QWidget):
             for toon in self.toons:
                 self.toon_list.addItem(toon)
 
-    def show_add_toon_ui(self):
-        self.active_toon_label.show()
-        #self.add_toon_layout_widget.show()
-        self.toon_list.hide()
-        self.enable_checkbox.hide()
-        self.toon_list_title.hide() 
-        self.button_layout_widget.hide()
-        self.trigger_layout_widget.hide()
-        self.toon_triggers_layout_widget.hide()
-
     def show_master_triggers(self):
         self.toon_list.hide()
         self.button_layout_widget.hide()
         self.toon_input.hide() 
-        #self.add_toon_layout_widget.hide()
         self.toon_triggers_layout_widget.hide()
         self.toon_list_title.hide() 
         self.enable_checkbox.hide() 
@@ -342,7 +287,6 @@ class VoiceNotificationsApp(QWidget):
 
     def show_toon_list(self):
         self.trigger_layout_widget.hide()
-        #self.add_toon_layout_widget.hide()
         self.toon_triggers_layout_widget.hide()
         self.toon_input.show() 
         self.toon_list.show()
@@ -362,7 +306,6 @@ class VoiceNotificationsApp(QWidget):
         self.toon_input.hide()
         self.button_layout_widget.hide()
         self.trigger_layout_widget.hide()
-        #self.add_toon_layout_widget.hide()
         self.toon_triggers_layout_widget.show()
         self.load_master_triggers()
         self.load_toon_triggers()
