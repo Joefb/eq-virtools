@@ -51,7 +51,7 @@ class VoiceNotificationsApp(QWidget):
         if not self.master_triggers:
             self.master_triggers = {
                 "Your root has broken": "Root has broken!",
-                " resists your spell": "Spell resisted!"
+                "resists your spell": "Spell resisted!"
             }
             self.settings.beginGroup("master_triggers")
             for pattern, message in self.master_triggers.items():
@@ -125,6 +125,7 @@ class VoiceNotificationsApp(QWidget):
         # Toon profile list
         self.toon_list = QListWidget()
         self.toon_list.itemDoubleClicked.connect(self.show_toon_triggers_ui)
+        self.toon_list_selected_toon = self.toon_list.selectedItems()
         self.update_toon_list()
         self.layout.addWidget(self.toon_list)
 
@@ -140,6 +141,7 @@ class VoiceNotificationsApp(QWidget):
         add_toon_submit_button.clicked.connect(self.add_toon)
         self.add_toon_button_layout.addWidget(add_toon_submit_button)
         delete_toon_submit_button = QPushButton("Delete Toon")
+        delete_toon_submit_button.clicked.connect(self.delete_toon)
         self.add_toon_button_layout.addWidget(delete_toon_submit_button)
         self.add_toon_button_layout_widget = QWidget()
         self.add_toon_button_layout_widget.setLayout(
@@ -403,6 +405,31 @@ class VoiceNotificationsApp(QWidget):
             self.update_toon_list()
             self.toon_input.clear()
             self.show_toon_list()
+
+    def delete_toon(self):
+        selected_items = self.toon_list.selectedItems()
+        if not selected_items:
+            return
+        toon_name = selected_items[0].text().strip()
+        if toon_name == "No toons configured" or not toon_name:
+            return
+        if toon_name in self.toons:
+            self.toons.remove(toon_name)
+            if toon_name in self.toon_triggers:
+                del self.toon_triggers[toon_name]
+            self.settings.beginGroup("toons")
+            self.settings.remove("")
+            for i, toon in enumerate(self.toons, 1):
+                self.settings.setValue(str(i), toon)
+            self.settings.endGroup()
+            self.settings.beginGroup(f"toon_triggers/{toon_name}")
+            self.settings.remove("")
+            self.settings.endGroup()
+            self.settings.sync()
+            self.update_toon_list()
+            if self.current_toon == toon_name:
+                self.current_toon = "Unknown"
+                self.update_active_toon_label()
 
     def add_trigger(self):
         pattern = self.pattern_input.text().strip()
