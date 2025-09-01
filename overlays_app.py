@@ -625,6 +625,5 @@ class OverlaysApp(QWidget):
 
     def closeEvent(self, event):
         self.settings.setValue("overlay_pos", self.overlay_manager.pos())
-        self.overlay_manager.close()
         self.hide()
         event.accept()
