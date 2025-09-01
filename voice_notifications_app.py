@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox, QLabel, QListWidget
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox, QLabel, QListWidget, QMessageBox
 from PyQt6.QtCore import QSettings, Qt, QThread
 from gtts import gTTS
 import pygame
@@ -125,7 +125,6 @@ class VoiceNotificationsApp(QWidget):
         # Toon profile list
         self.toon_list = QListWidget()
         self.toon_list.itemDoubleClicked.connect(self.show_toon_triggers_ui)
-        self.toon_list_selected_toon = self.toon_list.selectedItems()
         self.update_toon_list()
         self.layout.addWidget(self.toon_list)
 
@@ -413,6 +412,17 @@ class VoiceNotificationsApp(QWidget):
         toon_name = selected_items[0].text().strip()
         if toon_name == "No toons configured" or not toon_name:
             return
+
+        msg_box = QMessageBox()
+        msg_box.setWindowTitle("Confirm Deletion")
+        msg_box.setText(
+            f"Are you sure you want to delete the toon '{toon_name}'?")
+        msg_box.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QMessageBox.StandardButton.No)
+
+        if msg_box.exec() != QMessageBox.StandardButton.Yes:
+            return  # User clicked "No", exit the function
         if toon_name in self.toons:
             self.toons.remove(toon_name)
             if toon_name in self.toon_triggers:
