@@ -20,11 +20,11 @@ class OverlayManager(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             self.old_pos = event.globalPosition().toPoint()
 
-        def mouseMoveEvent(self, event):
-            if self.old_pos is not None:
-                delta = event.globalPosition().toPoint() - self.old_pos
-                self.move(self.pos() + delta)
-                self.old_pos = event.globalPosition().toPoint()
+    def mouseMoveEvent(self, event):
+        if self.old_pos is not None:
+            delta = event.globalPosition().toPoint() - self.old_pos
+            self.move(self.pos() + delta)
+            self.old_pos = event.globalPosition().toPoint()
 
     def add_bar(self, bar):
         self.layout.addWidget(bar)
