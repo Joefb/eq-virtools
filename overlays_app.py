@@ -59,7 +59,8 @@ class TimerBar(QProgressBar):
                 font-weight: bold;
             }
             QProgressBar::chunk {
-                background-color: rgba(76,175,80,200);
+                /*background-color: rgba(34,139,34,200);*/
+                background-color: rgba(53,94,59,200);
             }
         """)
         self.setFormat(f"{self.message} (%v:%s)")
