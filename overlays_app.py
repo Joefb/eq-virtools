@@ -38,32 +38,31 @@ class OverlayManager(QWidget):
             self.hide()
 
 
-class TimerBar(QWidget):
+class TimerBar(QProgressBar):
     def __init__(self, message, duration, manager):
         super().__init__()
         self.manager = manager
         self.message = message
         self.duration = duration
         self.remaining = duration
-        self.layout = QHBoxLayout()
-        self.layout.setContentsMargins(4, 2, 4, 2)
-        mins, secs = divmod(self.remaining, 60)
-        self.label = QLabel(f"{message} ({mins}:{secs:02})")
-        self.label.setStyleSheet(
-            "color: white; background-color: rgba(0,0,0,150); padding: 2px;")
-        self.progress = QProgressBar()
-        self.progress.setRange(0, 100)
-        self.progress.setValue(100)
-        self.progress.setFixedHeight(20)
-        self.progress.setStyleSheet("""
-            QProgressBar { background-color: rgba(224,224,224,150); border: 1px solid rgba(160,160,160,150); border-radius: 2px; }
-            QProgressBar::chunk { background-color: rgba(76,175,80,200); }
+        self.setFixedHeight(20)
+        self.setRange(0, 100)
+        self.setValue(100)
+        self.setTextVisible(True)
+        self.setStyleSheet("""
+            QProgressBar {
+                background-color: rgba(224,224,224,150);
+                border: 1px solid rgba(160,160,160,150);
+                border-radius: 2px;
+                text-align: left;
+                color: white;
+                font-weight: bold;
+            }
+            QProgressBar::chunk {
+                background-color: rgba(76,175,80,200);
+            }
         """)
-        self.layout.addWidget(self.label)
-        self.layout.addWidget(self.progress)
-        self.setLayout(self.layout)
-        self.setStyleSheet(
-            "background-color: rgba(0,0,0,100); border-radius: 4px;")
+        self.setFormat(f"{self.message} (%v:%s)")
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_timer)
         self.timer.start(1000)
@@ -75,9 +74,12 @@ class TimerBar(QWidget):
             self.manager.remove_bar(self)
             return
         percent = (self.remaining / self.duration) * 100
-        self.progress.setValue(int(percent))
+        self.setValue(int(percent))
         mins, secs = divmod(self.remaining, 60)
-        self.label.setText(f"{self.message} ({mins}:{secs:02})")
+        self.setFormat(f"{self.message} ({mins}:{secs:02})")
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
 
 
 class OverlaysApp(QWidget):
