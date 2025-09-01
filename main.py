@@ -207,6 +207,7 @@ class MainApp:
         self.timer_window = None
         self.voice_window = None
         self.overlays_window = None
+        self.overlays_window = OverlaysApp(self.log_dir, self.toon_name)
         self.load_active_log_file()
         icon_path = os.path.abspath(os.path.join(
             os.path.dirname(__file__), "tray-icon.png"))
@@ -221,6 +222,8 @@ class MainApp:
         self.log_poll_timer = QTimer()
         self.log_poll_timer.timeout.connect(self.update_log_position)
         self.log_poll_timer.start(1000)
+        self.overlays_window.update_log_info(
+            self.log_file, self.log_path, self.log_position, self.toon_name)
 
     def load_active_log_file(self):
         try:
@@ -318,7 +321,7 @@ class MainApp:
         voice_action.triggered.connect(self.launch_voice_notifications)
         self.menu.addAction(voice_action)
         overlay_action = QAction("Overlays", self.menu)
-        overlay_action.triggered.connect(self.launch_overlays)
+        overlay_action.triggered.connect(self.show_overlays)
         self.menu.addAction(overlay_action)
         settings_action = QAction("Set Log Directory", self.menu)
         settings_action.triggered.connect(self.select_log_directory)
@@ -341,12 +344,16 @@ class MainApp:
                 self.log_file, self.log_path, self.log_position, self.toon_name)
         self.voice_window.show()
 
-    def launch_overlays(self):
-        if not self.overlays_window:
-            self.overlays_window = OverlaysApp(self.log_dir, self.toon_name)
-            self.overlays_window.update_log_info(
-                self.log_file, self.log_path, self.log_position, self.toon_name)
-        self.overlays_window.show()
+    def show_overlays(self):
+        if self.overlays_window:
+            self.overlays_window.show()
+
+    # def launch_overlays(self):
+    #     if not self.overlays_window:
+    #         self.overlays_window = OverlaysApp(self.log_dir, self.toon_name)
+    #         self.overlays_window.update_log_info(
+    #             self.log_file, self.log_path, self.log_position, self.toon_name)
+    #     self.overlays_window.show()
 
     def select_log_directory(self):
         directory = QFileDialog.getExistingDirectory(
