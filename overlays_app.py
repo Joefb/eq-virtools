@@ -8,13 +8,19 @@ class OverlayManager(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint |
-                            Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
+                            Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.Popup)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.layout = QVBoxLayout()
         self.layout.setContentsMargins(4, 4, 4, 4)
         self.layout.setSpacing(2)
         self.setLayout(self.layout)
         self.old_pos = None
+        self.setWindowOpacity(0.8)  # Optional: Adjust for visibility
+
+    def showEvent(self, event):
+        # Prevent focus stealing on show
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        super().showEvent(event)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -29,7 +35,7 @@ class OverlayManager(QWidget):
     def add_bar(self, bar):
         self.layout.addWidget(bar)
         if not self.isVisible():
-            self.show()
+            self.show()  # Will use showWithoutActivating due to setAttribute
 
     def remove_bar(self, bar):
         self.layout.removeWidget(bar)
@@ -107,7 +113,7 @@ class OverlaysApp(QWidget):
         self.settings.endGroup()
         if not self.master_triggers:
             self.master_triggers = {
-                "You activate Stone Stance.": {'message': 'Stone Stance', 'duration': 480}
+                "You mend your wounds": {'message': 'Mend', 'duration': 360}
             }
             self.settings.beginGroup("master_overlays")
             for pattern, data in self.master_triggers.items():
@@ -133,6 +139,7 @@ class OverlaysApp(QWidget):
         self.overlay_manager = OverlayManager()
         overlay_pos = self.settings.value("overlay_pos", QPoint(100, 100))
         self.overlay_manager.move(overlay_pos)
+        self.overlay_manager.hide()  # Explicitly hide at start
         self.setup_ui()
         self.update_active_toon_label()
 
