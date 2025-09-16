@@ -210,7 +210,7 @@ class MainApp:
         self.overlays_window = OverlaysApp(self.log_dir, self.toon_name)
         self.load_active_log_file()
         icon_path = os.path.abspath(os.path.join(
-            os.path.dirname(__file__), "tray-icon.png"))
+            os.path.dirname(__file__), "./images/tray-icon.png"))
         icon = QIcon(icon_path)
         self.tray = QSystemTrayIcon(icon)
         if icon.isNull():
