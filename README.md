@@ -106,6 +106,10 @@ toon triggers double click the trigger.
 Overlays adds an overlay to the screen that can be used to track skill cool downs or what ever you like. The overlay can be positoned anywhere you like on the screen.
 Overlays management works the same as the `Voice Notifications` as seen above.
 
+**Important!!!**
+**Some window managers will have an option to give newely created windows focus. This will cause the overlay to take focus away from EverQuest.**
+**If you are experiencing this issue you will need to disable that option in your window manager.**
+
 ![overlay bar](./images/overlay-timers.png)
 
 
