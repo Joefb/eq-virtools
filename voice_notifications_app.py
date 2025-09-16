@@ -50,8 +50,8 @@ class VoiceNotificationsApp(QWidget):
         self.settings.endGroup()
         if not self.master_triggers:
             self.master_triggers = {
-                "Your root has broken": "Root has broken!",
-                "resists your spell": "Spell resisted!"
+                "you are about to fall": "levitate dropping",
+                "starting to appear": "invs dropping"
             }
             self.settings.beginGroup("master_triggers")
             for pattern, message in self.master_triggers.items():
