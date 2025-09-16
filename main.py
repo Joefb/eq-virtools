@@ -1,14 +1,17 @@
+import time
+import pygame
+from gtts import gTTS
+import re
+import os
 import importlib
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QFileDialog
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtCore import QSettings, QTimer, QThread, pyqtSignal
 from timer_app import MobTimerApp
 import voice_notifications_app
-import os
-import re
-from gtts import gTTS
-import pygame
-import time
+import overlays_app
+importlib.reload(overlays_app)
+OverlaysApp = overlays_app.OverlaysApp
 
 # Ensure latest VoiceNotificationsApp is loaded
 importlib.reload(voice_notifications_app)
@@ -203,9 +206,11 @@ class MainApp:
         self.zone_timer = 400  # Default 6:40
         self.timer_window = None
         self.voice_window = None
+        self.overlays_window = None
+        self.overlays_window = OverlaysApp(self.log_dir, self.toon_name)
         self.load_active_log_file()
         icon_path = os.path.abspath(os.path.join(
-            os.path.dirname(__file__), "tray-icon.png"))
+            os.path.dirname(__file__), "./images/tray-icon.png"))
         icon = QIcon(icon_path)
         self.tray = QSystemTrayIcon(icon)
         if icon.isNull():
@@ -217,6 +222,8 @@ class MainApp:
         self.log_poll_timer = QTimer()
         self.log_poll_timer.timeout.connect(self.update_log_position)
         self.log_poll_timer.start(1000)
+        self.overlays_window.update_log_info(
+            self.log_file, self.log_path, self.log_position, self.toon_name)
 
     def load_active_log_file(self):
         try:
@@ -297,6 +304,9 @@ class MainApp:
                                 self.current_zone, self.zone_timer)
                     if self.voice_window and self.voice_window.enabled and hasattr(self.voice_window, 'process_log_line'):
                         self.voice_window.process_log_line(clean_line)
+                    if self.overlays_window and self.overlays_window.enabled and hasattr(self.overlays_window, 'process_log_line'):
+                        self.overlays_window.process_log_line(clean_line)
+
         except Exception as e:
             self.log_file = None
             self.log_path = None
@@ -310,9 +320,9 @@ class MainApp:
         voice_action = QAction("Voice Notifications", self.menu)
         voice_action.triggered.connect(self.launch_voice_notifications)
         self.menu.addAction(voice_action)
-        placeholder_action = QAction("Other Tools (TBD)", self.menu)
-        placeholder_action.setEnabled(False)
-        self.menu.addAction(placeholder_action)
+        overlay_action = QAction("Overlays", self.menu)
+        overlay_action.triggered.connect(self.show_overlays)
+        self.menu.addAction(overlay_action)
         settings_action = QAction("Set Log Directory", self.menu)
         settings_action.triggered.connect(self.select_log_directory)
         self.menu.addAction(settings_action)
@@ -333,6 +343,17 @@ class MainApp:
             self.voice_window.update_log_info(
                 self.log_file, self.log_path, self.log_position, self.toon_name)
         self.voice_window.show()
+
+    def show_overlays(self):
+        if self.overlays_window:
+            self.overlays_window.show()
+
+    # def launch_overlays(self):
+    #     if not self.overlays_window:
+    #         self.overlays_window = OverlaysApp(self.log_dir, self.toon_name)
+    #         self.overlays_window.update_log_info(
+    #             self.log_file, self.log_path, self.log_position, self.toon_name)
+    #     self.overlays_window.show()
 
     def select_log_directory(self):
         directory = QFileDialog.getExistingDirectory(
